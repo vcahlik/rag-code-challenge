@@ -8,9 +8,10 @@ from tqdm.autonotebook import tqdm
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from brainsoft_code_challenge.vector_store import get_embedder
+from brainsoft_code_challenge.config import DEFAULT_MODEL
 
 
-tokenizer = tiktoken.get_encoding('p50k_base')
+tokenizer = tiktoken.encoding_for_model(DEFAULT_MODEL)
 
 
 def tiktoken_len(text):
@@ -32,7 +33,7 @@ def rebuild_chromadb(data):
     collections = chroma_client.list_collections()
     if "documentation" in [collection.name for collection in collections]:
         chroma_client.delete_collection("documentation")
-    collection = chroma_client.create_collection(name="documentation")
+    collection = chroma_client.create_collection(name="documentation", metadata={"hnsw:space": "ip"})
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=300,

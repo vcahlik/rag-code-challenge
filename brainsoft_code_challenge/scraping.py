@@ -2,13 +2,13 @@ import requests
 import logging
 
 
-def get_headers(github_api_token):
+def get_headers(github_api_token: str):
     if not github_api_token:
         return {}
     return {"Authorization": f"Bearer {github_api_token}"}
 
 
-def scrape_documentation(github_api_token=None):
+def scrape_documentation(github_api_token: str | None = None):
     url = "https://api.github.com/repos/IBM/ibm-generative-ai/contents/documentation/source"
     response = requests.get(url, headers=get_headers(github_api_token))
     data = response.json()
@@ -34,7 +34,7 @@ def scrape_documentation(github_api_token=None):
     return results
 
 
-def __scrape_examples_dir(url, github_api_token):
+def __scrape_examples_dir(url: str, github_api_token: str):
     response = requests.get(url, headers=get_headers(github_api_token))
     data = response.json()
     results = []
@@ -63,12 +63,12 @@ def __scrape_examples_dir(url, github_api_token):
     return results
 
 
-def scrape_examples(github_api_token=None):
+def scrape_examples(github_api_token: str | None = None):
     url = "https://api.github.com/repos/IBM/ibm-generative-ai/contents/examples"
     return __scrape_examples_dir(url, github_api_token)
 
 
-def scrape_all(github_api_token=None):
+def scrape_all(github_api_token: str | None = None):
     results = []
     results.extend(scrape_documentation(github_api_token))
     results.extend(scrape_examples(github_api_token))
