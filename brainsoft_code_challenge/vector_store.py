@@ -1,5 +1,4 @@
 import chromadb
-
 from langchain_openai import OpenAIEmbeddings
 
 

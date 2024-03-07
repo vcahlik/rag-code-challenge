@@ -1,5 +1,8 @@
-import requests
 import logging
+
+import requests
+
+REQUEST_TIMEOUT_SECONDS = 60
 
 
 def get_headers(github_api_token: str):
@@ -10,7 +13,7 @@ def get_headers(github_api_token: str):
 
 def scrape_documentation(github_api_token: str | None = None):
     url = "https://api.github.com/repos/IBM/ibm-generative-ai/contents/documentation/source"
-    response = requests.get(url, headers=get_headers(github_api_token))
+    response = requests.get(url, headers=get_headers(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
     data = response.json()
     results = []
     for file in data:
@@ -18,24 +21,24 @@ def scrape_documentation(github_api_token: str | None = None):
             if file["name"] == "404.rst":
                 continue
             documentation_url = f"https://ibm.github.io/ibm-generative-ai/main/{file['name'].removesuffix('.rst')}.html"
-            assert requests.get(documentation_url).status_code == 200
+            assert requests.get(documentation_url, timeout=REQUEST_TIMEOUT_SECONDS).status_code == 200  # noqa: PLR2004
             logging.info(f"Found page {documentation_url}")
             source_url = file["download_url"]
-            source_response = requests.get(source_url, headers=get_headers(github_api_token))
+            source_response = requests.get(source_url, headers=get_headers(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
             content = source_response.text
             result = {
                 "source_path": file["path"],
                 "source_url": source_url,
                 "documentation_url": documentation_url,
                 "content": content,
-                "type": "documentation"
+                "type": "documentation",
             }
             results.append(result)
     return results
 
 
 def __scrape_examples_dir(url: str, github_api_token: str):
-    response = requests.get(url, headers=get_headers(github_api_token))
+    response = requests.get(url, headers=get_headers(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
     data = response.json()
     results = []
     for file in data:
@@ -47,18 +50,12 @@ def __scrape_examples_dir(url: str, github_api_token: str):
                 if file["name"] == "__init__.py":
                     continue
                 documentation_url = f"https://ibm.github.io/ibm-generative-ai/main/rst_source/{file['path'].removesuffix('.py').replace('/', '.')}.html"
-                assert requests.get(documentation_url).status_code == 200
+                assert requests.get(documentation_url, timeout=REQUEST_TIMEOUT_SECONDS).status_code == 200  # noqa: PLR2004
                 logging.info(f"Found page {documentation_url}")
                 source_url = file["download_url"]
-                source_response = requests.get(source_url, headers=get_headers(github_api_token))
+                source_response = requests.get(source_url, headers=get_headers(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
                 content = source_response.text
-                result = {
-                    "source_path": file["path"],
-                    "source_url": source_url,
-                    "documentation_url": documentation_url,
-                    "content": content,
-                    "type": "example"
-                }
+                result = {"source_path": file["path"], "source_url": source_url, "documentation_url": documentation_url, "content": content, "type": "example"}
                 results.append(result)
     return results
 

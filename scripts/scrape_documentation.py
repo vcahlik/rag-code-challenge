@@ -1,9 +1,8 @@
 import argparse
-import logging
 import json
+import logging
 
 from brainsoft_code_challenge.scraping import scrape_all
-
 
 logging.basicConfig(level=logging.INFO)
 

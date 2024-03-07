@@ -1,24 +1,20 @@
 import argparse
-import tiktoken
-import chromadb
 import json
 from uuid import uuid4
+
+import chromadb
+import tiktoken
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from tqdm.autonotebook import tqdm
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-from brainsoft_code_challenge.vector_store import get_embedder
 from brainsoft_code_challenge.config import DEFAULT_MODEL
-
+from brainsoft_code_challenge.vector_store import get_embedder
 
 tokenizer = tiktoken.encoding_for_model(DEFAULT_MODEL)
 
 
 def tiktoken_len(text):
-    tokens = tokenizer.encode(
-        text,
-        disallowed_special=()
-    )
+    tokens = tokenizer.encode(text, disallowed_special=())
     return len(tokens)
 
 
@@ -35,19 +31,14 @@ def rebuild_chromadb(data):
         chroma_client.delete_collection("documentation")
     collection = chroma_client.create_collection(name="documentation", metadata={"hnsw:space": "ip"})
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=300,
-        chunk_overlap=75,
-        length_function=tiktoken_len,
-        separators=["\n\n", "\n", " ", ""]
-    )
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=75, length_function=tiktoken_len, separators=["\n\n", "\n", " ", ""])
 
     embedder = get_embedder()
     batch_limit = 100
     text_chunks = []
     metadatas = []
     for document in tqdm(data):
-        document_text_chunks = text_splitter.split_text(document['content'])
+        document_text_chunks = text_splitter.split_text(document["content"])
         document_metadatas = []
         for i, text_chunk in enumerate(document_text_chunks):
             embedding_text = f"{document['documentation_url']}: {text_chunk}"

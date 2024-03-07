@@ -22,7 +22,7 @@ The application (chatbot) should be able to answer questions on the documentatio
 - Introduce UI for communication with the agent ([Streamlit](https://streamlit.io/) / [React](https://react.dev/) whatever you want!)
   - Handle edge cases and crashes.
   - Use streaming for responses.
-  - (optional) Allow the user to upload file(s). 
+  - (optional) Allow the user to upload file(s).
 - (optional) Evaluation (how your solution performs, how precise it is in terms of retrieval quality).
 - (optional) The agent can lookup for specific facts on the web (Google / DuckDuckGo).
 - (optional) The agent can execute Python code.

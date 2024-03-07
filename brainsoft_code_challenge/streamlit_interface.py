@@ -1,7 +1,7 @@
 import streamlit as st
 
 from brainsoft_code_challenge.agent import get_agent_executor
-from brainsoft_code_challenge.config import DEFAULT_MODEL, DEFAULT_TEMPERATURE, DEFAULT_FREQUENCY_PENALTY, DEFAULT_PRESENCE_PENALTY, DEFAULT_TOP_P
+from brainsoft_code_challenge.config import DEFAULT_FREQUENCY_PENALTY, DEFAULT_MODEL, DEFAULT_PRESENCE_PENALTY, DEFAULT_TEMPERATURE, DEFAULT_TOP_P
 from brainsoft_code_challenge.constants import ACTION_HINTS
 
 
@@ -35,7 +35,7 @@ def reset_chat(model: str, temperature: float, frequency_penalty: float, presenc
 
 
 def prepare_page():
-    st.set_page_config(layout="wide", page_title=f"Generative AI Python SDK Assistant")
+    st.set_page_config(layout="wide", page_title="Generative AI Python SDK Assistant")
     initialize_chat()
 
     with st.sidebar:

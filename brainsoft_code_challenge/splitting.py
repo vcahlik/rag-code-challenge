@@ -1,3 +1,6 @@
+from brainsoft_code_challenge.config import MIN_SPLIT_LENGTH_CHARS, SPLIT_DOCUMENTS_LONGER_THAN_N_CHARS
+
+
 def merge_small_sections(contents, min_length: int | None):
     results = []
     merged_section = []
@@ -16,8 +19,8 @@ def merge_small_sections(contents, min_length: int | None):
 
 def split_long_document(document, min_length: int | None):
     lines = document["content"].splitlines(True)
-    subsection_start_indices = sorted({0} | {i - 1 for i, line in enumerate(lines) if set(line.strip()) == {'-'}})
-    contents = ["".join(lines[i:j]) for i, j in zip(subsection_start_indices, subsection_start_indices[1:] + [None])]
+    subsection_start_indices = sorted({0} | {i - 1 for i, line in enumerate(lines) if set(line.strip()) == {"-"}})
+    contents = ["".join(lines[i:j]) for i, j in zip(subsection_start_indices, subsection_start_indices[1:] + [None], strict=False)]
     if min_length is not None:
         contents = merge_small_sections(contents, min_length)
     results = []
@@ -29,10 +32,10 @@ def split_long_document(document, min_length: int | None):
 
 
 def split_document(document):
-    if len(document["content"]) > 8000:
+    if len(document["content"]) > SPLIT_DOCUMENTS_LONGER_THAN_N_CHARS:
         assert document["type"] == "documentation" and document["source_path"] in (
             "documentation/source/v2_migration_guide.rst",
-            "documentation/source/changelog.rst"
+            "documentation/source/changelog.rst",
         )
-        return split_long_document(document, min_length=5000)
+        return split_long_document(document, min_length=MIN_SPLIT_LENGTH_CHARS)
     return [document]

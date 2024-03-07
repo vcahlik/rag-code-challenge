@@ -1,9 +1,8 @@
 import argparse
-import logging
 import json
+import logging
 
 from brainsoft_code_challenge.splitting import split_document
-
 
 logging.basicConfig(level=logging.INFO)
 
