@@ -1,7 +1,11 @@
-import json
+from brainsoft_code_challenge.utils import load_environment
 
-from brainsoft_code_challenge.scraping import scrape_all
-from brainsoft_code_challenge.splitting import split_document, split_long_document
+load_environment()
+
+import json  # noqa: E402
+
+from brainsoft_code_challenge.scraping import scrape_all  # noqa: E402
+from brainsoft_code_challenge.splitting import split_document, split_long_document  # noqa: E402
 
 
 def test_scraping():
@@ -10,7 +14,7 @@ def test_scraping():
 
 
 def test_splitting():
-    with open("data/test/scraped_docs.json") as f:
+    with open("data/pytest/scraped_docs.json") as f:
         data = json.load(f)
     for document in data:
         split_parts = split_document(document)

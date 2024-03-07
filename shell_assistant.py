@@ -1,7 +1,11 @@
-import asyncio
-import sys
+from brainsoft_code_challenge.utils import load_environment
 
-from brainsoft_code_challenge.agent import get_agent_executor
+load_environment()
+
+import asyncio  # noqa: E402
+import sys  # noqa: E402
+
+from brainsoft_code_challenge.agent import get_agent_executor  # noqa: E402
 
 
 async def run():

@@ -1,4 +1,5 @@
 from brainsoft_code_challenge.config import MIN_SPLIT_LENGTH_CHARS, SPLIT_DOCUMENTS_LONGER_THAN_N_CHARS
+from brainsoft_code_challenge.utils import is_pytest_running
 
 
 def merge_small_sections(contents, min_length: int | None):
@@ -33,9 +34,10 @@ def split_long_document(document, min_length: int | None):
 
 def split_document(document):
     if len(document["content"]) > SPLIT_DOCUMENTS_LONGER_THAN_N_CHARS:
-        assert document["type"] == "documentation" and document["source_path"] in (
-            "documentation/source/v2_migration_guide.rst",
-            "documentation/source/changelog.rst",
-        )
+        if is_pytest_running():
+            assert document["type"] == "documentation" and document["source_path"] in (  # noqa: S101
+                "documentation/source/v2_migration_guide.rst",
+                "documentation/source/changelog.rst",
+            )
         return split_long_document(document, min_length=MIN_SPLIT_LENGTH_CHARS)
     return [document]
