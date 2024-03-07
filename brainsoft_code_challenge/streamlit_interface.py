@@ -1,7 +1,22 @@
 import streamlit as st
 
 from brainsoft_code_challenge.agent import get_agent_executor
-from brainsoft_code_challenge.config import DEFAULT_FREQUENCY_PENALTY, DEFAULT_MODEL, DEFAULT_PRESENCE_PENALTY, DEFAULT_TEMPERATURE, DEFAULT_TOP_P
+from brainsoft_code_challenge.config import (
+    DEFAULT_FREQUENCY_PENALTY,
+    DEFAULT_MODEL,
+    DEFAULT_PRESENCE_PENALTY,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TOP_P,
+    MAX_FREQUENCY_PENALTY,
+    MAX_PRESENCE_PENALTY,
+    MAX_TEMPERATURE,
+    MAX_TOP_P,
+    MIN_FREQUENCY_PENALTY,
+    MIN_PRESENCE_PENALTY,
+    MIN_TEMPERATURE,
+    MIN_TOP_P,
+    MODEL_CHOICES,
+)
 from brainsoft_code_challenge.constants import ACTION_HINTS
 
 
@@ -41,12 +56,11 @@ def prepare_page():
     with st.sidebar:
         model_config = st.session_state.model_config
         st.title("Configuration")
-        model_options = ("gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview")
-        model = st.selectbox("Model", model_options, index=model_options.index(model_config["model"]))
-        temperature = st.slider("Temperature", 0.0, 2.0, model_config["temperature"])
-        frequency_penalty = st.slider("Frequency penalty", -2.0, 2.0, model_config["frequency_penalty"])
-        presence_penalty = st.slider("Presence penalty", -2.0, 2.0, model_config["presence_penalty"])
-        top_p = st.slider("Top-p", 0.0, 1.0, model_config["top_p"])
+        model = st.selectbox("Model", MODEL_CHOICES, index=MODEL_CHOICES.index(model_config["model"]))
+        temperature = st.slider("Temperature", MIN_TEMPERATURE, MAX_TEMPERATURE, model_config["temperature"])
+        frequency_penalty = st.slider("Frequency penalty", MIN_FREQUENCY_PENALTY, MAX_FREQUENCY_PENALTY, model_config["frequency_penalty"])
+        presence_penalty = st.slider("Presence penalty", MIN_PRESENCE_PENALTY, MAX_PRESENCE_PENALTY, model_config["presence_penalty"])
+        top_p = st.slider("Top-p", MIN_TOP_P, MAX_TOP_P, model_config["top_p"])
         col1, col2 = st.columns(2)
         reset_chat_args = [model, temperature, frequency_penalty, presence_penalty, top_p]
         if (

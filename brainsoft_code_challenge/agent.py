@@ -7,10 +7,9 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from pydantic.v1 import BaseModel, Field
 
-from brainsoft_code_challenge.vector_store import get_chromadb_collection, get_embedder
+from brainsoft_code_challenge.vector_store import VectorStore
 
-embedder = get_embedder()
-collection = get_chromadb_collection()
+vector_store = VectorStore()
 
 
 def get_unique_results(results, n_results: int):
@@ -32,8 +31,8 @@ class DocumentationQuery(BaseModel):
 @tool(args_schema=DocumentationQuery)
 def search_documentation(query: str) -> str:
     """Searches the documentation using a natural language query."""
-    query_embeddings = embedder.embed_documents([query])
-    results = collection.query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"][0]
+    query_embeddings = vector_store.get_embedder().embed_documents([query])
+    results = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"][0]
     results = get_unique_results(results, 3)
     outputs = []
     for result in results:

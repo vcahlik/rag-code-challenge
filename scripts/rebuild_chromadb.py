@@ -8,9 +8,10 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from tqdm.autonotebook import tqdm
 
 from brainsoft_code_challenge.config import DEFAULT_MODEL
-from brainsoft_code_challenge.vector_store import get_embedder
+from brainsoft_code_challenge.vector_store import VectorStore
 
 tokenizer = tiktoken.encoding_for_model(DEFAULT_MODEL)
+vector_store = VectorStore()
 
 
 def tiktoken_len(text):
@@ -18,9 +19,9 @@ def tiktoken_len(text):
     return len(tokens)
 
 
-def upsert_to_index(texts, metadatas, collection, embedder):
+def upsert_to_index(texts, metadatas, collection):
     ids = [str(uuid4()) for _ in range(len(texts))]
-    embeddings = embedder.embed_documents(texts)
+    embeddings = vector_store.get_embedder().embed_documents(texts)
     collection.add(documents=texts, metadatas=metadatas, ids=ids, embeddings=embeddings)
 
 
@@ -33,7 +34,6 @@ def rebuild_chromadb(data):
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=75, length_function=tiktoken_len, separators=["\n\n", "\n", " ", ""])
 
-    embedder = get_embedder()
     batch_limit = 100
     text_chunks = []
     metadatas = []
@@ -47,11 +47,11 @@ def rebuild_chromadb(data):
         text_chunks.extend(document_text_chunks)
         metadatas.extend(document_metadatas)
         if len(text_chunks) >= batch_limit:
-            upsert_to_index(text_chunks, metadatas, collection, embedder)
+            upsert_to_index(text_chunks, metadatas, collection)
             text_chunks = []
             metadatas = []
     if text_chunks:
-        upsert_to_index(text_chunks, metadatas, collection, embedder)
+        upsert_to_index(text_chunks, metadatas, collection)
 
 
 if __name__ == "__main__":
