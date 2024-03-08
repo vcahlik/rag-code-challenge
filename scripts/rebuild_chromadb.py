@@ -1,5 +1,7 @@
 import argparse
 import json
+from collections.abc import Sequence
+from typing import cast
 from uuid import uuid4
 
 import chromadb
@@ -8,24 +10,25 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from tqdm.autonotebook import tqdm
 
 from brainsoft_code_challenge.config import DEFAULT_MODEL
-from brainsoft_code_challenge.vector_store import VectorStore
+from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
 
 tokenizer = tiktoken.encoding_for_model(DEFAULT_MODEL)
 vector_store = VectorStore()
 
 
-def tiktoken_len(text):
+def tiktoken_len(text: str) -> int:
     tokens = tokenizer.encode(text, disallowed_special=())
     return len(tokens)
 
 
-def upsert_to_index(texts, metadatas, collection):
+def upsert_to_index(texts: Sequence[str], metadatas: list[MetadataType], collection: chromadb.Collection) -> None:
+    texts = list(texts)
     ids = [str(uuid4()) for _ in range(len(texts))]
-    embeddings = vector_store.get_embedder().embed_documents(texts)
+    embeddings = cast(list[Sequence[float]], vector_store.get_embedder().embed_documents(texts))
     collection.add(documents=texts, metadatas=metadatas, ids=ids, embeddings=embeddings)
 
 
-def rebuild_chromadb(data):
+def rebuild_chromadb(data: Sequence[MetadataType]) -> None:
     chroma_client = chromadb.PersistentClient(path="../chromadb")
     collections = chroma_client.list_collections()
     if "documentation" in [collection.name for collection in collections]:
@@ -42,7 +45,11 @@ def rebuild_chromadb(data):
         document_metadatas = []
         for i, text_chunk in enumerate(document_text_chunks):
             embedding_text = f"{document['documentation_url']}: {text_chunk}"
-            metadata = {"chunk": i, "embedding_text": embedding_text, **{k: v for k, v in document.items() if v is not None}}
+            metadata: MetadataType = {
+                "chunk": i,
+                "embedding_text": embedding_text,
+                **{k: v for k, v in document.items() if v is not None},
+            }
             document_metadatas.append(metadata)
         text_chunks.extend(document_text_chunks)
         metadatas.extend(document_metadatas)

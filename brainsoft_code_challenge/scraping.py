@@ -8,13 +8,13 @@ from brainsoft_code_challenge.utils import is_pytest_running
 REQUEST_TIMEOUT_SECONDS = 60
 
 
-def get_headers(github_api_token: str):
+def get_headers(github_api_token: str | None) -> dict[str, str]:
     if not github_api_token:
         return {}
     return {"Authorization": f"Bearer {github_api_token}"}
 
 
-def __scrape_documentation(github_api_token: str | None = None):
+def __scrape_documentation(github_api_token: str | None = None) -> list[dict[str, str]]:
     url = "https://api.github.com/repos/IBM/ibm-generative-ai/contents/documentation/source"
     response = requests.get(url, headers=get_headers(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
     data = response.json()
@@ -41,7 +41,7 @@ def __scrape_documentation(github_api_token: str | None = None):
     return results
 
 
-def __scrape_examples_dir(url: str, github_api_token: str):
+def __scrape_examples_dir(url: str, github_api_token: str | None) -> list[dict[str, str]]:
     response = requests.get(url, headers=get_headers(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
     data = response.json()
     results = []
@@ -65,12 +65,12 @@ def __scrape_examples_dir(url: str, github_api_token: str):
     return results
 
 
-def __scrape_examples(github_api_token: str | None = None):
+def __scrape_examples(github_api_token: str | None = None) -> list[dict[str, str]]:
     url = "https://api.github.com/repos/IBM/ibm-generative-ai/contents/examples"
     return __scrape_examples_dir(url, github_api_token)
 
 
-def scrape_all(github_api_token: str | None = None):
+def scrape_all(github_api_token: str | None = None) -> list[dict[str, str]]:
     if github_api_token is None:
         github_api_token = os.getenv("GITHUB_API_TOKEN")
     results = []

@@ -1,8 +1,10 @@
+from collections.abc import Mapping, Sequence
+
 from brainsoft_code_challenge.config import MIN_SPLIT_LENGTH_CHARS, SPLIT_DOCUMENTS_LONGER_THAN_N_CHARS
 from brainsoft_code_challenge.utils import is_pytest_running
 
 
-def merge_small_sections(contents, min_length: int | None):
+def merge_small_sections(contents: Sequence[str], min_length: int) -> list[str]:
     results = []
     merged_section = []
     for content in contents:
@@ -18,7 +20,7 @@ def merge_small_sections(contents, min_length: int | None):
     return ["".join(merged_section) for merged_section in results]
 
 
-def split_long_document(document, min_length: int | None):
+def split_long_document(document: Mapping[str, str], min_length: int | None) -> list[dict[str, str]]:
     lines = document["content"].splitlines(True)
     subsection_start_indices = sorted({0} | {i - 1 for i, line in enumerate(lines) if set(line.strip()) == {"-"}})
     contents = ["".join(lines[i:j]) for i, j in zip(subsection_start_indices, subsection_start_indices[1:] + [None], strict=False)]
@@ -26,13 +28,14 @@ def split_long_document(document, min_length: int | None):
         contents = merge_small_sections(contents, min_length)
     results = []
     for content in contents:
-        result = document.copy()
+        result = dict(document).copy()
         result["content"] = content
         results.append(result)
     return results
 
 
-def split_document(document):
+def split_document(document: Mapping[str, str]) -> list[dict[str, str]]:
+    document = dict(document)
     if len(document["content"]) > SPLIT_DOCUMENTS_LONGER_THAN_N_CHARS:
         if is_pytest_running():
             assert document["type"] == "documentation" and document["source_path"] in (  # noqa: S101

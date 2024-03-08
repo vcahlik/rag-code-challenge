@@ -1,4 +1,6 @@
 import datetime
+from collections.abc import Sequence
+from typing import cast
 
 from langchain.agents import AgentExecutor, tool
 from langchain.agents.openai_tools.base import create_openai_tools_agent
@@ -7,12 +9,12 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from pydantic.v1 import BaseModel, Field
 
-from brainsoft_code_challenge.vector_store import VectorStore
+from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
 
 vector_store = VectorStore()
 
 
-def get_unique_results(results, n_results: int):
+def get_unique_results(results: Sequence[MetadataType], n_results: int) -> list[MetadataType]:
     unique_results = []
     unique_urls = []
     for result in results:
@@ -31,13 +33,16 @@ class DocumentationQuery(BaseModel):
 @tool(args_schema=DocumentationQuery)
 def search_documentation(query: str) -> str:
     """Searches the documentation using a natural language query."""
-    query_embeddings = vector_store.get_embedder().embed_documents([query])
-    results = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"][0]
+    query_embeddings = cast(list[Sequence[float]], vector_store.get_embedder().embed_documents([query]))
+    metadatas = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"]
+    if not metadatas:
+        return "No results found."
+    results = metadatas[0]
     results = get_unique_results(results, 3)
     outputs = []
     for result in results:
         output = f"Documentation page URL: {result['documentation_url']}\n"
-        output += result["content"]
+        output += str(result["content"])
         outputs.append(output)
     return "\n\n========================================\n\n".join(outputs)
 
@@ -50,7 +55,7 @@ class GoogleQuery(BaseModel):
 def search_google(query: str) -> str:
     """Searches Google and returns the most relevant results."""
     # TODO
-    pass
+    return query
 
 
 def get_system_prompt() -> str:
@@ -60,7 +65,7 @@ def get_system_prompt() -> str:
     This conversation begins on {now.strftime("%A, %B %d, %Y")} at {now.strftime("%H:%M")}."""
 
 
-def get_agent_executor(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float, verbose: bool):
+def get_agent_executor(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float, verbose: bool) -> AgentExecutor:
     llm = ChatOpenAI(
         model=model,
         streaming=True,
@@ -86,7 +91,7 @@ def get_agent_executor(model: str, temperature: float, frequency_penalty: float,
         memory_key="chat_history",
     )
     return AgentExecutor(
-        agent=agent,
+        agent=agent,  # type: ignore
         tools=tools,
         memory=memory,
         return_intermediate_steps=True,

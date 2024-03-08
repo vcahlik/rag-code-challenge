@@ -8,6 +8,7 @@ import contextlib  # noqa: E402
 import sys  # noqa: E402
 import warnings  # noqa: E402
 
+from langchain.agents import AgentExecutor  # noqa: E402
 from prompt_toolkit import PromptSession  # noqa: E402
 from prompt_toolkit.styles import Style  # noqa: E402
 from rich.console import Console  # noqa: E402
@@ -32,10 +33,10 @@ from brainsoft_code_challenge.config import (  # noqa: E402
 )
 
 console = Console()
-session = PromptSession()
+session = PromptSession()  # type: ignore
 
 
-def display_intro():
+def display_intro() -> None:
     intro_text = """
 # Generative AI Python SDK Assistant
 
@@ -46,7 +47,7 @@ Type **quit** to exit the application.
     console.print()
 
 
-async def conversation_loop(agent_executor, user_input: str, prompt_style: Style):
+async def conversation_loop(agent_executor: AgentExecutor, user_input: str, prompt_style: Style) -> None:
     while True:
         if user_input.strip().lower() == "quit":
             sys.exit(0)
@@ -60,7 +61,7 @@ async def conversation_loop(agent_executor, user_input: str, prompt_style: Style
         user_input = await session.prompt_async("User: ", style=prompt_style)
 
 
-async def run(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float):
+async def run(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float) -> None:
     display_intro()
 
     from brainsoft_code_challenge.agent import get_agent_executor

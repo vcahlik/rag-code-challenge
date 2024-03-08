@@ -27,7 +27,6 @@ target-version = ['py311']
 include = '\.pyi?$'
 
 [tool.ruff]
-# Exclude ignored directories.
 exclude = [
     ".bzr",
     ".direnv",
@@ -80,7 +79,6 @@ select = [
 
 ignore = ["ANN204", "ANN101", "PLR09", "F405", "F403"]
 
-# Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
 
@@ -88,18 +86,25 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.format]
-# Like Black, use double quotes for strings.
+# Respect the Black formatter.
 quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
-
-# Like Black, respect magic trailing commas.
 skip-magic-trailing-comma = false
-
-# Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
 
 [tool.ruff.lint.flake8-annotations]
 ignore-fully-untyped = true
 suppress-none-returning = true
+
+[tool.mypy]
+python_version = "3.11"
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+warn_redundant_casts = true
+warn_unused_configs = true

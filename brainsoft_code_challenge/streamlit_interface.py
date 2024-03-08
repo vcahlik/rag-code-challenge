@@ -1,4 +1,7 @@
+from collections.abc import Mapping, Sequence
+
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 
 from brainsoft_code_challenge.agent import get_agent_executor
 from brainsoft_code_challenge.config import (
@@ -20,7 +23,7 @@ from brainsoft_code_challenge.config import (
 from brainsoft_code_challenge.constants import ACTION_HINTS
 
 
-def initialize_chat():
+def initialize_chat() -> None:
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "model_config" not in st.session_state:
@@ -37,7 +40,7 @@ def initialize_chat():
         )
 
 
-def reset_chat(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float):
+def reset_chat(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float) -> None:
     st.session_state.messages = []
     st.session_state.model_config = {
         "model": model,
@@ -49,7 +52,7 @@ def reset_chat(model: str, temperature: float, frequency_penalty: float, presenc
     st.session_state.agent_executor = get_agent_executor(model, temperature, frequency_penalty, presence_penalty, top_p, verbose=True)
 
 
-def prepare_page():
+def prepare_page() -> None:
     st.set_page_config(layout="wide", page_title="Generative AI Python SDK Assistant")
     initialize_chat()
 
@@ -62,7 +65,7 @@ def prepare_page():
         presence_penalty = st.slider("Presence penalty", MIN_PRESENCE_PENALTY, MAX_PRESENCE_PENALTY, model_config["presence_penalty"])
         top_p = st.slider("Top-p", MIN_TOP_P, MAX_TOP_P, model_config["top_p"])
         col1, col2 = st.columns(2)
-        reset_chat_args = [model, temperature, frequency_penalty, presence_penalty, top_p]
+        reset_chat_args = (model, temperature, frequency_penalty, presence_penalty, top_p)
         if (
             model_config["model"] != model
             or model_config["temperature"] != temperature
@@ -75,17 +78,16 @@ def prepare_page():
             col1.button("Reset chat", on_click=reset_chat, args=reset_chat_args)
 
 
-def render_actions(actions, element=None):
-    if element is None:
-        element = st
+def render_actions(actions: Sequence[Mapping[str, str]], element: DeltaGenerator | None = None) -> None:
     for action in actions:
         hint = ACTION_HINTS[action["tool"]]
         query = action["query"]
-        with element.expander(f"{hint}: {query}", expanded=False):
+        expander = st.expander(f"{hint}: {query}", expanded=False) if element is None else element.expander(f"{hint}: {query}", expanded=False)
+        with expander:
             st.text(action["output"])
 
 
-async def render_streamlit_ui():
+async def render_streamlit_ui() -> None:
     st.title("Generative AI Python SDK Assistant")
 
     for message in st.session_state.messages:
