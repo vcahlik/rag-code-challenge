@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+from typing import Any
+
 MODEL_CHOICES = ("gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview")
 DEFAULT_MODEL = "gpt-3.5-turbo"
 MIN_TEMPERATURE = 0.0
@@ -15,3 +18,7 @@ DEFAULT_TOP_P = 1.0
 
 SPLIT_DOCUMENTS_LONGER_THAN_N_CHARS = 8000
 MIN_SPLIT_LENGTH_CHARS = 2000
+
+WEB_SEARCH_MODEL = "gpt-3.5-turbo"
+WEB_SEARCH_TEMPERATURE = 0.7
+WEB_SEARCH_MODEL_KWARGS: Mapping[str, Any] = {}

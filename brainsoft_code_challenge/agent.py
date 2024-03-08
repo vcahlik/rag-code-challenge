@@ -9,9 +9,12 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from pydantic.v1 import BaseModel, Field
 
+from brainsoft_code_challenge.config import WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_TEMPERATURE
 from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
+from brainsoft_code_challenge.web_search import build_web_search_chain
 
 vector_store = VectorStore()
+web_search_chain = build_web_search_chain(WEB_SEARCH_MODEL, WEB_SEARCH_TEMPERATURE, WEB_SEARCH_MODEL_KWARGS)
 
 
 def get_unique_results(results: Sequence[MetadataType], n_results: int) -> list[MetadataType]:
@@ -53,9 +56,9 @@ class GoogleQuery(BaseModel):
 
 @tool(args_schema=DocumentationQuery)
 def search_google(query: str) -> str:
-    """Searches Google and returns the most relevant results."""
-    # TODO
-    return query
+    """Searches Google and returns the summaries of the most relevant results."""
+    result = web_search_chain.invoke({"query": query})
+    return str(result)
 
 
 def get_system_prompt() -> str:
@@ -72,7 +75,7 @@ def get_agent_executor(model: str, temperature: float, frequency_penalty: float,
         temperature=temperature,
         model_kwargs={"frequency_penalty": frequency_penalty, "presence_penalty": presence_penalty, "top_p": top_p},
     )
-    tools = [search_documentation]
+    tools = [search_documentation, search_google]
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", get_system_prompt()),
