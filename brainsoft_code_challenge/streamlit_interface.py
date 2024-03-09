@@ -1,9 +1,13 @@
+import os
+import tempfile
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
-from brainsoft_code_challenge.agent import get_agent_executor
+from brainsoft_code_challenge.agent import build_agent_input, get_agent_executor
 from brainsoft_code_challenge.config import (
     DEFAULT_FREQUENCY_PENALTY,
     DEFAULT_MODEL,
@@ -21,6 +25,7 @@ from brainsoft_code_challenge.config import (
     MODEL_CHOICES,
 )
 from brainsoft_code_challenge.constants import ACTION_HINTS
+from brainsoft_code_challenge.files import InputFile, read_csv_file, read_pdf_file
 
 
 def initialize_chat() -> None:
@@ -87,25 +92,78 @@ def render_actions(actions: Sequence[Mapping[str, str]], element: DeltaGenerator
             st.text(action["output"])
 
 
+def read_attached_files(buffers: Sequence[UploadedFile] | None) -> list[InputFile]:
+    if buffers is None:
+        return []
+    input_files = []
+    for buffer in buffers:
+        content = ""
+        error = None
+        buffer.seek(0)
+        file_name = buffer.name
+        try:
+            if file_name.endswith(".csv"):
+                content = read_csv_file(buffer)
+            elif file_name.endswith(".pdf"):
+                fd, tmp_filename = tempfile.mkstemp(suffix=".pdf")
+                with os.fdopen(fd, "wb") as tmpfile:
+                    tmpfile.write(buffer.read())
+                    tmpfile.flush()
+                    content = read_pdf_file(tmp_filename)
+            else:
+                raise ValueError("Unsupported file type")
+        except Exception:
+            error = "An error occurred while reading the file contents."
+        input_file = InputFile(name=file_name, content=content, error=error)
+        input_files.append(input_file)
+    return input_files
+
+
+def render_attached_files(message: Mapping[str, Any], element: DeltaGenerator | None = None) -> None:
+    if "input_files" in message:
+        file_statuses = []
+        for input_file in message["input_files"]:
+            if input_file.error is not None:
+                file_statuses.append(f"❌ {input_file.name} - {input_file.error}")
+            else:
+                file_statuses.append(f"✅ {input_file.name}")
+        file_names_string = "\n\n".join(file_statuses)
+        if element is not None:
+            element.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
+        else:
+            st.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
+
+
 async def render_streamlit_ui() -> None:
     st.title("Generative AI Python SDK Assistant")
+
+    with st.expander("Attach files", expanded=False):
+        st.warning("These files will be included with each subsequent query. Make sure to clear them after you submit your message.", icon="⚠️")
+        attached_files = st.file_uploader("Upload a file", type=["csv", "pdf"], accept_multiple_files=True, label_visibility="collapsed")
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             render_actions(message.get("actions", []))
+            render_attached_files(message)
             st.markdown(message["content"])
 
-    if user_input := st.chat_input("How can I help you?"):
-        st.session_state.messages.append({"role": "user", "content": user_input})
+    attached_files_note = f" ({len(attached_files)} file{'s' if len(attached_files) != 1 else ''} attached)" if attached_files else ""
+    if user_input := st.chat_input(f"How can I help you?{attached_files_note}"):
+        input_files = read_attached_files(attached_files)
+        message = {"role": "user", "content": user_input}
+        if attached_files:
+            message["input_files"] = input_files
+        st.session_state.messages.append(message)
         with st.chat_message("user"):
             st.markdown(user_input)
 
         assistant_message = st.chat_message("assistant")
         actions_container = assistant_message.container()
+        render_attached_files(message, element=assistant_message)
         stream_text = ""
         stream_container = assistant_message.empty()
         actions = []
-        async for event in st.session_state.agent_executor.astream_events({"input": user_input}, version="v1"):
+        async for event in st.session_state.agent_executor.astream_events(build_agent_input(user_input, input_files), version="v1"):
             if event["event"] == "on_tool_end":
                 action = {
                     "tool": event["name"],

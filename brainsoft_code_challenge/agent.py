@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from pydantic.v1 import BaseModel, Field
 
 from brainsoft_code_challenge.config import WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_TEMPERATURE
+from brainsoft_code_challenge.files import InputFile
 from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
 from brainsoft_code_challenge.web_search import build_web_search_chain
 
@@ -100,3 +101,14 @@ def get_agent_executor(model: str, temperature: float, frequency_penalty: float,
         return_intermediate_steps=True,
         verbose=verbose,
     )
+
+
+def build_agent_input(user_input: str, input_files: list[InputFile]) -> dict[str, str]:
+    if not input_files:
+        return {"input": user_input}
+    # TODO correctly handle large amounts of files
+    file_texts = [f"Attached file: {input_file.name}\n{input_file.content[:10000]}" for input_file in input_files]
+    joined_file_texts = "\n\n========================================\n\n".join(file_texts)
+
+    input_text = joined_file_texts + "\n\nEnd of attachments, user input follows\n\n========================================\n\n" + user_input
+    return {"input": input_text}

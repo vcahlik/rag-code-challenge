@@ -7,8 +7,9 @@ import asyncio  # noqa: E402
 import contextlib  # noqa: E402
 import sys  # noqa: E402
 import warnings  # noqa: E402
+from collections.abc import Sequence  # noqa: E402
+from typing import TYPE_CHECKING  # noqa: E402
 
-from langchain.agents import AgentExecutor  # noqa: E402
 from prompt_toolkit import PromptSession  # noqa: E402
 from prompt_toolkit.styles import Style  # noqa: E402
 from rich.console import Console  # noqa: E402
@@ -32,6 +33,11 @@ from brainsoft_code_challenge.config import (  # noqa: E402
     MODEL_CHOICES,
 )
 
+if TYPE_CHECKING:
+    from langchain.agents import AgentExecutor
+
+    from brainsoft_code_challenge.files import InputFile
+
 console = Console()
 session = PromptSession()  # type: ignore
 
@@ -40,6 +46,7 @@ def display_intro() -> None:
     intro_text = """
 # Generative AI Python SDK Assistant
 
+Type **load [file ..]** to include the specified file(s) with the next message.
 Type **quit** to exit the application.
     """
     markdown = Markdown(intro_text)
@@ -47,29 +54,67 @@ Type **quit** to exit the application.
     console.print()
 
 
-async def conversation_loop(agent_executor: AgentExecutor, user_input: str, prompt_style: Style) -> None:
+def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
+    from brainsoft_code_challenge.files import InputFile, read_csv_file, read_pdf_file  # noqa: E402
+
+    input_files = []
+    for file_name in file_names:
+        content = ""
+        error = None
+        try:
+            if file_name.endswith(".csv"):
+                with open(file_name) as file:
+                    content = read_csv_file(file)
+            elif file_name.endswith(".pdf"):
+                content = read_pdf_file(file_name)
+            else:
+                raise ValueError("Unsupported file type")
+        except Exception:
+            error = "An error occurred while reading the file contents."
+        input_file = InputFile(name=file_name, content=content, error=error)
+        input_files.append(input_file)
+    return input_files
+
+
+async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, prompt_style: Style) -> None:
+    from brainsoft_code_challenge.agent import build_agent_input
+
+    input_files = []
     while True:
         if user_input.strip().lower() == "quit":
             sys.exit(0)
-        full_response = "**Assistant:** "
-        response_markdown = Markdown(full_response)
-        with Live(response_markdown, console=console, auto_refresh=True) as live:
-            async for event in agent_executor.astream_events({"input": user_input}, version="v1"):
-                if event["event"] == "on_chat_model_stream":
-                    full_response += event["data"]["chunk"].content
-                    live.update(Markdown(full_response))
+        split_input = user_input.lower().split()
+        if split_input and split_input[0] == "load":
+            file_names = split_input[1:]
+            input_files = read_attached_files(file_names)
+            if not input_files:
+                message = "No files will be attached with the next message."
+            elif len(input_files) == 1:
+                message = "1 file will be attached with the next message."
+            else:
+                message = f"{len(input_files)} files will be attached with the next message."
+            console.print(Markdown(message))
+        else:
+            full_response = "**Assistant:** "
+            response_markdown = Markdown(full_response)
+            with Live(response_markdown, console=console, auto_refresh=True) as live:
+                async for event in agent_executor.astream_events(build_agent_input(user_input, input_files), version="v1"):
+                    if event["event"] == "on_chat_model_stream":
+                        full_response += event["data"]["chunk"].content
+                        live.update(Markdown(full_response))
+            input_files = []
         user_input = await session.prompt_async("User: ", style=prompt_style)
 
 
 async def run(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float) -> None:
     display_intro()
 
-    from brainsoft_code_challenge.agent import get_agent_executor
-
     console.print("How can I help you?")
 
     prompt_style = Style.from_dict({"prompt": "bold"})
     user_input = await session.prompt_async("User: ", style=prompt_style)
+
+    from brainsoft_code_challenge.agent import get_agent_executor
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)

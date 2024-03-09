@@ -16,6 +16,7 @@ chromadb = "^0.4.24"
 rich = "^13.7.1"
 prompt-toolkit = "^3.0.43"
 beautifulsoup4 = "^4.12.3"
+pymupdf = "^1.23.26"
 
 
 [build-system]
