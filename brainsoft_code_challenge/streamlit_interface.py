@@ -165,9 +165,15 @@ async def render_streamlit_ui() -> None:
         actions = []
         async for event in st.session_state.agent_executor.astream_events(build_agent_input(user_input, input_files), version="v1"):
             if event["event"] == "on_tool_end":
+                if "query" in event["data"]["input"]:
+                    query = event["data"]["input"]["query"]
+                elif "python_code" in event["data"]["input"]:
+                    query = event["data"]["input"]["python_code"]
+                else:
+                    query = ""
                 action = {
                     "tool": event["name"],
-                    "query": event["data"]["input"]["query"],
+                    "query": query,
                     "output": event["data"]["output"],
                 }
                 actions.append(action)
