@@ -139,6 +139,6 @@ def get_chat_response(payload: QueryPayload) -> dict[str, str]:
         verbose=False,
         memory_contexts=contexts,
     )
-    output = agent_executor.invoke(build_agent_input(payload_dict["user_input"], input_files))
-
-    return {"output": output["output"]}
+    agent_input = build_agent_input(payload_dict["user_input"], input_files)
+    output = agent_executor.invoke(agent_input)
+    return {"input": agent_input["input"], "output": output["output"]}
