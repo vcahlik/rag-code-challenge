@@ -146,10 +146,12 @@ def get_chat_response(payload: QueryPayload) -> dict[str, Any]:
         verbose=False,
         memory_contexts=contexts,
     )
-    agent_input = build_agent_input(payload_dict["user_input"], input_files)
+    agent_input, input_was_cut_off = build_agent_input(payload_dict["user_input"], input_files, payload_dict["model"])
     output = agent_executor.invoke(agent_input)
 
     response = {"input": agent_input["input"], "output": output["output"]}
     if payload_dict["return_history"]:
         response["history"] = history + [{"type": "human", "content": agent_input["input"]}, {"type": "ai", "content": output["output"]}]
+    if input_was_cut_off:
+        response["warning"] = "The input was too long and therefore was cut off."
     return response

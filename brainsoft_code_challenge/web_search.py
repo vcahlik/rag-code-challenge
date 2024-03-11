@@ -10,6 +10,8 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_core.runnables import RunnableSerializable
 from langchain_openai import ChatOpenAI
 
+from brainsoft_code_challenge.config import WEB_SEARCH_SUMMARIZE_MAX_TOKENS
+
 search = GoogleSerperAPIWrapper()
 
 
@@ -22,7 +24,7 @@ Using the above text, answer or extract information about the following query:
 > {query}
 
 -----------
-If the query cannot be answered using the text and no relevant information can be extracted, summarize the text instead. Include all factual information, numbers, stats, etc. if available."""  # noqa: E501
+If the query cannot be answered using the text and no relevant information can be extracted, write a detailed summarization of text instead. Include all factual information, code examples, numbers, stats, etc. if available."""  # noqa: E501
 SUMMARY_PROMPT = ChatPromptTemplate.from_template(SUMMARY_TEMPLATE)
 
 
@@ -46,7 +48,7 @@ def build_web_search_chain(model: str, temperature: float, model_kwargs: Mapping
     scrape_and_summarize_chain = RunnablePassthrough.assign(
         summary=RunnablePassthrough.assign(text=lambda x: scrape_text(x["url"])[:10000])
         | SUMMARY_PROMPT
-        | ChatOpenAI(model=model, temperature=temperature, model_kwargs=dict(model_kwargs))
+        | ChatOpenAI(model=model, max_tokens=WEB_SEARCH_SUMMARIZE_MAX_TOKENS, temperature=temperature, model_kwargs=dict(model_kwargs))
         | StrOutputParser()
     ) | (lambda x: f"URL: {x['url']}\nSUMMARY: {x['summary']}")
 

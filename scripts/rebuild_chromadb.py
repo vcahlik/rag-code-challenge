@@ -5,20 +5,13 @@ from typing import cast
 from uuid import uuid4
 
 import chromadb
-import tiktoken
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from tqdm.autonotebook import tqdm
 
-from brainsoft_code_challenge.config import DEFAULT_MODEL
+from brainsoft_code_challenge.tokenizer import count_tokens
 from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
 
-tokenizer = tiktoken.encoding_for_model(DEFAULT_MODEL)
 vector_store = VectorStore()
-
-
-def tiktoken_len(text: str) -> int:
-    tokens = tokenizer.encode(text, disallowed_special=())
-    return len(tokens)
 
 
 def upsert_to_index(texts: Sequence[str], metadatas: list[MetadataType], collection: chromadb.Collection) -> None:
@@ -35,7 +28,7 @@ def rebuild_chromadb(data: Sequence[MetadataType]) -> None:
         chroma_client.delete_collection("documentation")
     collection = chroma_client.create_collection(name="documentation", metadata={"hnsw:space": "ip"})
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=75, length_function=tiktoken_len, separators=["\n\n", "\n", " ", ""])
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=75, length_function=count_tokens, separators=["\n\n", "\n", " ", ""])
 
     batch_limit = 100
     text_chunks = []

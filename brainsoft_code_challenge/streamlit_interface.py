@@ -55,6 +55,8 @@ def reset_chat(model: str, temperature: float, frequency_penalty: float, presenc
         "top_p": top_p,
     }
     st.session_state.agent_executor = get_agent_executor(model, temperature, frequency_penalty, presence_penalty, top_p, verbose=True)
+    if "current_response" in st.session_state:
+        del st.session_state.current_response
 
 
 def prepare_page() -> None:
@@ -136,6 +138,62 @@ def render_attached_files(message: Mapping[str, Any], element: DeltaGenerator | 
             st.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
 
 
+def save_last_agent_output() -> None:
+    if "current_response" in st.session_state:
+        st.session_state.messages.append(
+            {"role": "assistant", "content": st.session_state.current_response["stream_text"], "actions": st.session_state.current_response["actions"]}
+        )
+        del st.session_state.current_response
+
+
+def render_conversation_history() -> None:
+    save_last_agent_output()
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            render_actions(message.get("actions", []))
+            render_attached_files(message)
+            st.markdown(message["content"])
+
+
+async def process_user_input(user_input: str, attached_files: Sequence[UploadedFile] | None) -> None:
+    input_files = read_attached_files(attached_files)
+    message: dict[str, Any] = {"role": "user", "content": user_input}
+    if attached_files:
+        message["input_files"] = input_files
+    st.session_state.messages.append(message)
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    assistant_message = st.chat_message("assistant")
+    actions_container = assistant_message.container()
+    render_attached_files(message, element=assistant_message)
+    stream_container = assistant_message.empty()
+    st.session_state.current_response = {"stream_text": "", "actions": []}
+    model = st.session_state.model_config["model"]
+    agent_input, input_was_cut_off = build_agent_input(user_input, input_files, model)
+    if input_was_cut_off:
+        st.toast("The input was too long and therefore was cut off.", icon="⚠️")
+    async for event in st.session_state.agent_executor.astream_events(agent_input, version="v1"):
+        if event["event"] == "on_tool_end":
+            if "query" in event["data"]["input"]:
+                query = event["data"]["input"]["query"]
+            elif "python_code" in event["data"]["input"]:
+                query = event["data"]["input"]["python_code"]
+            else:
+                query = ""
+            action = {
+                "tool": event["name"],
+                "query": query,
+                "output": event["data"]["output"],
+            }
+            st.session_state.current_response["actions"].append(action)
+            render_actions([action], element=actions_container)
+        elif event["event"] == "on_chat_model_stream":
+            st.session_state.current_response["stream_text"] += event["data"]["chunk"].content
+            stream_container.markdown(st.session_state.current_response["stream_text"])
+    save_last_agent_output()
+
+
 async def render_streamlit_ui() -> None:
     st.title("Generative AI Python SDK Assistant")
 
@@ -143,45 +201,8 @@ async def render_streamlit_ui() -> None:
         st.warning("These files will be included with each subsequent query. Make sure to clear them after you submit your message.", icon="⚠️")
         attached_files = st.file_uploader("Upload a file", type=["csv", "pdf"], accept_multiple_files=True, label_visibility="collapsed")
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            render_actions(message.get("actions", []))
-            render_attached_files(message)
-            st.markdown(message["content"])
+    render_conversation_history()
 
     attached_files_note = f" ({len(attached_files)} file{'s' if len(attached_files) != 1 else ''} attached)" if attached_files else ""
     if user_input := st.chat_input(f"How can I help you?{attached_files_note}"):
-        input_files = read_attached_files(attached_files)
-        message = {"role": "user", "content": user_input}
-        if attached_files:
-            message["input_files"] = input_files
-        st.session_state.messages.append(message)
-        with st.chat_message("user"):
-            st.markdown(user_input)
-
-        assistant_message = st.chat_message("assistant")
-        actions_container = assistant_message.container()
-        render_attached_files(message, element=assistant_message)
-        stream_text = ""
-        stream_container = assistant_message.empty()
-        actions = []
-        async for event in st.session_state.agent_executor.astream_events(build_agent_input(user_input, input_files), version="v1"):
-            if event["event"] == "on_tool_end":
-                if "query" in event["data"]["input"]:
-                    query = event["data"]["input"]["query"]
-                elif "python_code" in event["data"]["input"]:
-                    query = event["data"]["input"]["python_code"]
-                else:
-                    query = ""
-                action = {
-                    "tool": event["name"],
-                    "query": query,
-                    "output": event["data"]["output"],
-                }
-                actions.append(action)
-                render_actions([action], element=actions_container)
-            elif event["event"] == "on_chat_model_stream":
-                stream_text += event["data"]["chunk"].content
-                stream_container.markdown(stream_text)
-        # TODO this code does not run if the user interrupts the model
-        st.session_state.messages.append({"role": "assistant", "content": stream_text, "actions": actions})
+        await process_user_input(user_input, attached_files)

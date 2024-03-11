@@ -76,7 +76,7 @@ def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
     return input_files
 
 
-async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, prompt_style: Style) -> None:
+async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, prompt_style: Style, model: str) -> None:
     from brainsoft_code_challenge.agent import build_agent_input
 
     input_files = []
@@ -97,8 +97,11 @@ async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, pr
         else:
             full_response = "**Assistant:** "
             response_markdown = Markdown(full_response)
+            agent_input, input_was_cut_off = build_agent_input(user_input, input_files, model)
+            if input_was_cut_off:
+                console.print(Markdown("**System:** The input was too long and therefore was cut off."))
             with Live(response_markdown, console=console, auto_refresh=True) as live:
-                async for event in agent_executor.astream_events(build_agent_input(user_input, input_files), version="v1"):
+                async for event in agent_executor.astream_events(agent_input, version="v1"):
                     if event["event"] == "on_chat_model_stream":
                         full_response += event["data"]["chunk"].content
                         live.update(Markdown(full_response))
@@ -119,7 +122,7 @@ async def run(model: str, temperature: float, frequency_penalty: float, presence
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         agent_executor = get_agent_executor(model, temperature, frequency_penalty, presence_penalty, top_p, verbose=False)
-        await conversation_loop(agent_executor, user_input, prompt_style)
+        await conversation_loop(agent_executor, user_input, prompt_style, model)
 
 
 if __name__ == "__main__":
