@@ -6,9 +6,12 @@ import base64  # noqa: E402
 import os  # noqa: E402
 import tempfile  # noqa: E402
 from collections.abc import Mapping, Sequence  # noqa: E402
+from enum import Enum  # noqa: E402
 from typing import Any  # noqa: E402
 
 from fastapi import FastAPI, HTTPException  # noqa: E402
+from langchain.agents import AgentExecutor  # noqa: E402
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from brainsoft_code_challenge.agent import MemoryContextType, build_agent_input, get_agent_executor  # noqa: E402
@@ -29,8 +32,14 @@ from brainsoft_code_challenge.config import (  # noqa: E402
     MODEL_CHOICES,
 )
 from brainsoft_code_challenge.files import InputFile, UnsupportedFileTypeError, process_csv, read_pdf_file  # noqa: E402
+from brainsoft_code_challenge.tokenizer import count_tokens, get_memory_token_limit  # noqa: E402
 
 app = FastAPI()
+
+
+class MessageType(Enum):
+    HUMAN = "human"
+    AI = "ai"
 
 
 class MessagePayload(BaseModel):
@@ -58,23 +67,25 @@ class ChatRequestPayload(BaseModel):
         extra = "forbid"
 
 
-def __parse_history(history: Sequence[Mapping[str, str]]) -> list[MemoryContextType]:
+def __parse_history(history: Sequence[Mapping[str, str]], model: str) -> list[MemoryContextType]:
     """
-    Parses the history into LangChain memory contexts.
+    Parses the history into LangChain memory contexts. The total length of the history is checked as well, as initial summarization
+    (before the agent even outputs its response) could take a very long time.
 
     :param history: The history from the request payload.
     :return: LangChain memory contexts.
     """
+    total_token_length = sum([count_tokens(message["content"]) for message in history])
+    if total_token_length > get_memory_token_limit(model):
+        raise ValueError(f"The history's length of {total_token_length} tokens exceeds the maximum length of {get_memory_token_limit(model)} tokens.")
     contexts = []
-    if not len(history) % 2 == 0:
-        raise ValueError("The number of messages in history must be even or zero.")
+    if history and history[0]["type"] == MessageType.AI.value:
+        history = [{"type": MessageType.HUMAN.value, "content": ""}] + list(history)
     for i in range(0, len(history), 2):
         odd_message = history[i]
         even_message = history[i + 1]
-        if odd_message["type"] != "human":
-            raise ValueError('Every odd message must be of type "human".')
-        if even_message["type"] != "ai":
-            raise ValueError('Every even message must be of type "ai".')
+        if odd_message["type"] != MessageType.HUMAN.value or even_message["type"] != MessageType.AI.value:
+            raise ValueError('The history must be composed of alternating "human" and "ai" messages, with the last message being of type "ai".')
         context = ({"input": str(odd_message["content"])}, {"output": str(even_message["content"])})
         contexts.append(context)
     return contexts
@@ -140,6 +151,39 @@ def home() -> dict[str, str]:
     }
 
 
+def __get_history_from_agent_executor(agent_executor: AgentExecutor) -> list[dict[str, str]]:
+    """
+    Retrieves the chat history from the agent executor. As ConversationSummaryBufferMemory does not support initialization with a
+    system message, the (potential) system message would be converted to a regular human or AI message.
+
+    :param agent_executor: The agent executor holding the memory.
+    :return: The chat history.
+    """
+    if agent_executor.memory is None:
+        return []
+    memory_variables = agent_executor.memory.load_memory_variables({})
+    history = []
+    summary = None
+    for message in memory_variables["chat_history"]:
+        if isinstance(message, HumanMessage):
+            history.append({"type": MessageType.HUMAN.value, "content": message.content})
+        elif isinstance(message, AIMessage):
+            history.append({"type": MessageType.AI.value, "content": message.content})
+        elif isinstance(message, SystemMessage):
+            if summary is not None:
+                continue  # This should never happen, there should only be a single system message
+            summary = message.content
+        else:
+            raise ValueError(f"Unknown message type: {str(type(message))}")
+    if summary is not None:
+        summary_message_type = MessageType.AI
+        if history and history[0]["type"] == MessageType.AI.value:
+            summary_message_type = MessageType.HUMAN
+        summary_message = {"type": summary_message_type.value, "content": summary}
+        history = [summary_message] + history
+    return history  # type: ignore
+
+
 @app.post("/chat")
 def get_chat_response(payload: ChatRequestPayload) -> dict[str, Any]:
     """
@@ -156,7 +200,7 @@ def get_chat_response(payload: ChatRequestPayload) -> dict[str, Any]:
     try:
         __validate_config(payload_dict)
         input_files = __read_attached_files(payload_dict["files"])
-        contexts = __parse_history(history)
+        contexts = __parse_history(history, payload_dict["model"])
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -174,7 +218,7 @@ def get_chat_response(payload: ChatRequestPayload) -> dict[str, Any]:
 
     response = {"input": agent_input["input"], "output": output["output"]}
     if payload_dict["return_history"]:
-        response["history"] = history + [{"type": "human", "content": agent_input["input"]}, {"type": "ai", "content": output["output"]}]
+        response["history"] = __get_history_from_agent_executor(agent_executor)
     if input_was_cut_off:
         response["warning"] = "The input was too long and therefore was cut off."
     return response

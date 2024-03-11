@@ -10,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from pydantic.v1 import BaseModel, Field
 
-from brainsoft_code_challenge.config import WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_TEMPERATURE
+from brainsoft_code_challenge.config import CONVERSATION_SUMMARY_MODEL, WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_TEMPERATURE
 from brainsoft_code_challenge.constants import OUTPUT_TOKEN_LIMIT
 from brainsoft_code_challenge.files import InputFile
 from brainsoft_code_challenge.tokenizer import get_memory_token_limit, shorten_input_text_for_model
@@ -129,7 +129,7 @@ def get_agent_executor(
     )
     agent = create_openai_tools_agent(llm, tools, prompt)
     memory = ConversationSummaryBufferMemory(
-        llm=ChatOpenAI(model=model),
+        llm=ChatOpenAI(model=CONVERSATION_SUMMARY_MODEL),
         max_token_limit=get_memory_token_limit(model),
         return_messages=True,
         input_key="input",

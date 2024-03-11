@@ -34,6 +34,21 @@ def get_memory_token_limit(model: str) -> int:
     return __get_universal_token_limit(model)
 
 
+def shorten_text(text: str, token_limit: int) -> tuple[str, bool]:
+    """
+    Shorten the input text to fit the token limit.
+
+    :param text: The input text.
+    :param token_limit: The token limit.
+    :return: The shortened text and a boolean indicating whether the text was shortened.
+    """
+    tokens = tokenizer.encode(text, disallowed_special=())
+    if len(tokens) <= token_limit:
+        return text, False
+    text = tokenizer.decode(tokens[:token_limit])
+    return text, True
+
+
 def shorten_input_text_for_model(text: str, model: str) -> tuple[str, bool]:
     """
     Shorten the input text to fit the token limit for a given model.
@@ -42,9 +57,4 @@ def shorten_input_text_for_model(text: str, model: str) -> tuple[str, bool]:
     :param model: The model to use.
     :return: The shortened text and a boolean indicating whether the text was shortened.
     """
-    token_limit = get_input_token_limit(model)
-    tokens = tokenizer.encode(text, disallowed_special=())
-    if len(tokens) <= token_limit:
-        return text, False
-    text = tokenizer.decode(tokens[:token_limit])
-    return text, True
+    return shorten_text(text, get_input_token_limit(model))
