@@ -24,14 +24,21 @@ web_search_chain = build_web_search_chain(WEB_SEARCH_MODEL, WEB_SEARCH_TEMPERATU
 
 
 def get_unique_results(results: Sequence[MetadataType], n_results: int) -> list[MetadataType]:
-    unique_results = []
-    unique_urls = []
+    unique_results: list[MetadataType] = []
     for result in results:
-        if result["documentation_url"] not in unique_urls:
+        source_url = result["source_url"]
+        split_part = result.get("split_part")
+
+        is_new = True
+        for unique_result in unique_results:
+            if unique_result["source_url"] == source_url and unique_result.get("split_part") == split_part:
+                is_new = False
+                break
+
+        if is_new:
             unique_results.append(result)
-            unique_urls.append(result["documentation_url"])
-        if len(unique_results) >= n_results:
-            break
+            if len(unique_results) >= n_results:
+                break
     return unique_results
 
 
