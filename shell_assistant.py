@@ -59,8 +59,6 @@ def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
 
     input_files = []
     for file_name in file_names:
-        content = ""
-        error = None
         try:
             if file_name.endswith(".csv"):
                 with open(file_name) as file:
@@ -69,9 +67,11 @@ def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
                 content = read_pdf_file(file_name)
             else:
                 raise ValueError("Unsupported file type")
-        except Exception:
-            error = "An error occurred while reading the file contents."
-        input_file = InputFile(name=file_name, content=content, error=error)
+        except Exception as e:
+            message = f"Could not load file {file_name}: {e}"
+            console.print(Markdown(f"**System:** {message}"))
+            return []
+        input_file = InputFile(name=file_name, content=content)
         input_files.append(input_file)
     return input_files
 
@@ -93,7 +93,7 @@ async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, pr
                 message = "1 file will be attached with the next message."
             else:
                 message = f"{len(input_files)} files will be attached with the next message."
-            console.print(Markdown(message))
+            console.print(Markdown(f"**System:** {message}"))
         else:
             full_response = "**Assistant:** "
             response_markdown = Markdown(full_response)
