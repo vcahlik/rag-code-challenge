@@ -55,7 +55,7 @@ Type **quit** to exit the application.
 
 
 def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
-    from brainsoft_code_challenge.files import InputFile, read_csv_file, read_pdf_file  # noqa: E402
+    from brainsoft_code_challenge.files import InputFile, process_csv, read_pdf_file  # noqa: E402
 
     input_files = []
     for file_name in file_names:
@@ -64,7 +64,7 @@ def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
         try:
             if file_name.endswith(".csv"):
                 with open(file_name) as file:
-                    content = read_csv_file(file)
+                    content = process_csv(file)
             elif file_name.endswith(".pdf"):
                 content = read_pdf_file(file_name)
             else:

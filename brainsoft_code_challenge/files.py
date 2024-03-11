@@ -10,8 +10,15 @@ class InputFile:
     error: str | None = None
 
 
-def read_csv_file(file) -> str:  # type: ignore
-    return file.read()  # type: ignore
+def process_csv(file=None, content: str | None = None) -> str:  # type: ignore
+    if (file is None) == (content is None):
+        raise ValueError("Exactly one of file and content must be provided.")
+    if file is not None:
+        content = file.read()
+        if isinstance(content, bytes):
+            return content.decode("utf-8")
+        return content  # type: ignore
+    return content  # type: ignore
 
 
 def read_pdf_file(filename: str) -> str:

@@ -15,6 +15,8 @@ from brainsoft_code_challenge.files import InputFile
 from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
 from brainsoft_code_challenge.web_search import build_web_search_chain
 
+MemoryContextType = tuple[dict[str, str], dict[str, str]]
+
 vector_store = VectorStore()
 web_search_chain = build_web_search_chain(WEB_SEARCH_MODEL, WEB_SEARCH_TEMPERATURE, WEB_SEARCH_MODEL_KWARGS)
 
@@ -78,7 +80,17 @@ def get_system_prompt() -> str:
     This conversation begins on {now.strftime("%A, %B %d, %Y")} at {now.strftime("%H:%M")}."""  # noqa: E501
 
 
-def get_agent_executor(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float, verbose: bool) -> AgentExecutor:
+def get_agent_executor(
+    model: str,
+    temperature: float,
+    frequency_penalty: float,
+    presence_penalty: float,
+    top_p: float,
+    verbose: bool,
+    memory_contexts: Sequence[MemoryContextType] | None = None,
+) -> AgentExecutor:
+    if memory_contexts is None:
+        memory_contexts = []
     llm = ChatOpenAI(
         model=model,
         streaming=True,
@@ -103,6 +115,8 @@ def get_agent_executor(model: str, temperature: float, frequency_penalty: float,
         output_key="output",
         memory_key="chat_history",
     )
+    for memory_context in memory_contexts:
+        memory.save_context(*memory_context)
     return AgentExecutor(
         agent=agent,  # type: ignore
         tools=tools,
@@ -112,7 +126,7 @@ def get_agent_executor(model: str, temperature: float, frequency_penalty: float,
     )
 
 
-def build_agent_input(user_input: str, input_files: list[InputFile]) -> dict[str, str]:
+def build_agent_input(user_input: str, input_files: Sequence[InputFile]) -> dict[str, str]:
     if not input_files:
         return {"input": user_input}
     # TODO correctly handle large amounts of files

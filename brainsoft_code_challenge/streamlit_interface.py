@@ -25,7 +25,7 @@ from brainsoft_code_challenge.config import (
     MODEL_CHOICES,
 )
 from brainsoft_code_challenge.constants import ACTION_HINTS
-from brainsoft_code_challenge.files import InputFile, read_csv_file, read_pdf_file
+from brainsoft_code_challenge.files import InputFile, process_csv, read_pdf_file
 
 
 def initialize_chat() -> None:
@@ -103,7 +103,7 @@ def read_attached_files(buffers: Sequence[UploadedFile] | None) -> list[InputFil
         file_name = buffer.name
         try:
             if file_name.endswith(".csv"):
-                content = read_csv_file(buffer)
+                content = process_csv(buffer)
             elif file_name.endswith(".pdf"):
                 fd, tmp_filename = tempfile.mkstemp(suffix=".pdf")
                 with os.fdopen(fd, "wb") as tmpfile:

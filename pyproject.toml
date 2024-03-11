@@ -17,6 +17,7 @@ rich = "^13.7.1"
 prompt-toolkit = "^3.0.43"
 beautifulsoup4 = "^4.12.3"
 pymupdf = "^1.23.26"
+python-multipart = "^0.0.9"
 
 
 [build-system]
