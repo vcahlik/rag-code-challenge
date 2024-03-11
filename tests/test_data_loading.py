@@ -5,7 +5,7 @@ load_environment()
 import json  # noqa: E402
 
 from brainsoft_code_challenge.scraping import scrape_all  # noqa: E402
-from brainsoft_code_challenge.splitting import split_document, split_long_document  # noqa: E402
+from brainsoft_code_challenge.splitting import __split_long_document, split_document  # noqa: E402
 
 
 def test_scraping() -> None:
@@ -24,7 +24,7 @@ def test_splitting() -> None:
 
 def test_split_long_document() -> None:
     def __test_split_long_document(content: str, min_length: int | None, verify_n_sections: int | None = None) -> None:
-        results = split_long_document({"content": content}, min_length=min_length)
+        results = __split_long_document({"content": content}, min_length=min_length)
         if verify_n_sections is not None:
             assert len(results) == verify_n_sections  # noqa: S101
         assert "".join(result["content"] for result in results) == content  # noqa: S101

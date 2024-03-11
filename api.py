@@ -33,14 +33,6 @@ from brainsoft_code_challenge.files import InputFile, UnsupportedFileTypeError, 
 app = FastAPI()
 
 
-@app.get("/")
-def home() -> dict[str, str]:
-    return {
-        "Name": "Generative AI Python SDK Assistant API",
-        "Status": "ok",
-    }
-
-
 class MessagePayload(BaseModel):
     type: str
     content: str
@@ -51,7 +43,7 @@ class FilePayload(BaseModel):
     content: str
 
 
-class QueryPayload(BaseModel):
+class ChatRequestPayload(BaseModel):
     user_input: str
     history: list[MessagePayload] | None = None
     files: list[FilePayload] | None = None
@@ -66,7 +58,13 @@ class QueryPayload(BaseModel):
         extra = "forbid"
 
 
-def parse_history(history: Sequence[Mapping[str, str]]) -> list[MemoryContextType]:
+def __parse_history(history: Sequence[Mapping[str, str]]) -> list[MemoryContextType]:
+    """
+    Parses the history into LangChain memory contexts.
+
+    :param history: The history from the request payload.
+    :return: LangChain memory contexts.
+    """
     contexts = []
     if not len(history) % 2 == 0:
         raise ValueError("The number of messages in history must be even or zero.")
@@ -82,7 +80,12 @@ def parse_history(history: Sequence[Mapping[str, str]]) -> list[MemoryContextTyp
     return contexts
 
 
-def validate_config(payload: Mapping[str, Any]) -> None:
+def __validate_config(payload: Mapping[str, Any]) -> None:
+    """
+    Validates the model configuration from the request payload dictionary. Raises a ValueError upon failure.
+
+    :param payload: The request payload dictionary.
+    """
     if payload["model"] not in MODEL_CHOICES:
         raise ValueError(f"Model must be one of {MODEL_CHOICES}")
     if not MIN_TEMPERATURE <= payload["temperature"] <= MAX_TEMPERATURE:
@@ -95,7 +98,13 @@ def validate_config(payload: Mapping[str, Any]) -> None:
         raise ValueError(f"Top-p must be between {MIN_TOP_P} and {MAX_TOP_P}")
 
 
-def read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFile]:
+def __read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFile]:
+    """
+    Reads the attached base64-encoded files from the request payload.
+
+    :param file_payloads: The file payloads from the request payload.
+    :return: A list of InputFile objects.
+    """
     if file_payloads is None:
         return []
     input_files = []
@@ -123,17 +132,31 @@ def read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFil
     return input_files
 
 
+@app.get("/")
+def home() -> dict[str, str]:
+    return {
+        "Name": "Generative AI Python SDK Assistant API",
+        "Status": "ok",
+    }
+
+
 @app.post("/chat")
-def get_chat_response(payload: QueryPayload) -> dict[str, Any]:
+def get_chat_response(payload: ChatRequestPayload) -> dict[str, Any]:
+    """
+    Get a response from the AI model using a POST request.
+
+    :param payload: The request payload.
+    :return: API response.
+    """
     payload_dict = payload.model_dump()
     history = payload_dict["history"]
     if history is None:
         history = []
 
     try:
-        validate_config(payload_dict)
-        input_files = read_attached_files(payload_dict["files"])
-        contexts = parse_history(history)
+        __validate_config(payload_dict)
+        input_files = __read_attached_files(payload_dict["files"])
+        contexts = __parse_history(history)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

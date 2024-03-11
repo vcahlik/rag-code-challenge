@@ -23,7 +23,15 @@ vector_store = VectorStore()
 web_search_chain = build_web_search_chain(WEB_SEARCH_MODEL, WEB_SEARCH_TEMPERATURE, WEB_SEARCH_MODEL_KWARGS)
 
 
-def get_unique_results(results: Sequence[MetadataType], n_results: int) -> list[MetadataType]:
+def __get_unique_results(results: Sequence[MetadataType], n_results: int) -> list[MetadataType]:
+    """
+    Documentation documents are split into smaller "splits", which are split into "chunks". Embeddings are calculated chunk-wise,
+    so we need to ensure that we only return unique results, where the same document split is not repeated.
+
+    :param results: Results from the vector databaser.
+    :param n_results: The number of unique results to return.
+    :return: The unique results.
+    """
     unique_results: list[MetadataType] = []
     for result in results:
         source_url = result["source_url"]
@@ -48,13 +56,13 @@ class DocumentationQuery(BaseModel):
 
 @tool(args_schema=DocumentationQuery)
 def search_documentation(query: str) -> str:
-    """Searches the documentation using a natural language query."""
+    """Searches the documentation using a natural language query."""  # Tool description for agent
     query_embeddings = cast(list[Sequence[float]], vector_store.get_embedder().embed_documents([query]))
     metadatas = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"]
     if not metadatas:
         return "No results found."
     results = metadatas[0]
-    results = get_unique_results(results, 3)
+    results = __get_unique_results(results, 3)
     outputs = []
     for result in results:
         output = f"Documentation page URL: {result['documentation_url']}\n"
@@ -69,7 +77,7 @@ class GoogleQuery(BaseModel):
 
 @tool(args_schema=DocumentationQuery)
 def search_google(query: str) -> str:
-    """Searches Google and returns the summaries of the most relevant results."""
+    """Searches Google and returns the summaries of the most relevant results."""  # Tool description for agent
     result = web_search_chain.invoke({"query": query})
     return str(result)
 
@@ -98,6 +106,9 @@ def get_agent_executor(
     verbose: bool,
     memory_contexts: Sequence[MemoryContextType] | None = None,
 ) -> AgentExecutor:
+    """
+    Creates an agent executor with the given parameters. The agent executor holds the memory, so must not be re-used across different conversations.
+    """
     if memory_contexts is None:
         memory_contexts = []
     llm = ChatOpenAI(
@@ -137,6 +148,14 @@ def get_agent_executor(
 
 
 def build_agent_input(user_input: str, input_files: Sequence[InputFile], model: str) -> tuple[dict[str, str], bool]:
+    """
+    Builds the input for the agent executor using the user input and input files.
+
+    :param user_input: The user's input.
+    :param input_files: The input files.
+    :param model: The OpenAI model to use.
+    :return: The agent executor input and a boolean indicating whether the input was cut off to fit the model's token limit.
+    """
     if input_files:
         file_texts = [f"Attached file: {input_file.name}\n{input_file.content[:10000]}" for input_file in input_files]
         joined_file_texts = "\n\n========================================\n\n".join(file_texts)

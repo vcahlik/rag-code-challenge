@@ -43,7 +43,10 @@ console = Console()
 session = PromptSession()  # type: ignore
 
 
-def display_intro() -> None:
+def __display_intro() -> None:
+    """
+    Display the introductory text.
+    """
     intro_text = """
 # Generative AI Python SDK Assistant
 
@@ -55,7 +58,13 @@ Type **quit** to exit the application.
     console.print()
 
 
-def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
+def __read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
+    """
+    Read the attached files and return a list of InputFile objects.
+
+    :param file_names: The names/paths of the files to read.
+    :return: A list of InputFile objects.
+    """
     from brainsoft_code_challenge.files import InputFile, UnsupportedFileTypeError, process_csv, read_pdf_file  # noqa: E402
 
     input_files = []
@@ -77,7 +86,15 @@ def read_attached_files(file_names: Sequence[str]) -> list["InputFile"]:
     return input_files
 
 
-async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, prompt_style: Style, model: str) -> None:
+async def __conversation_loop(agent_executor: "AgentExecutor", user_input: str, prompt_style: Style, model: str) -> None:
+    """
+    The main conversation loop.
+
+    :param agent_executor: The agent executor to use.
+    :param user_input: The current input from the user.
+    :param prompt_style: The prompt style to use.
+    :param model: The name of the OpenAI model.
+    """
     from brainsoft_code_challenge.agent import build_agent_input
 
     input_files = []
@@ -87,7 +104,7 @@ async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, pr
         split_input = user_input.lower().split()
         if split_input and split_input[0] == "load":
             file_names = split_input[1:]
-            input_files = read_attached_files(file_names)
+            input_files = __read_attached_files(file_names)
             if not input_files:
                 message = "No files will be attached with the next message."
             elif len(input_files) == 1:
@@ -113,7 +130,10 @@ async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, pr
 
 
 async def run(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float) -> None:
-    display_intro()
+    """
+    Runs the assistant.
+    """
+    __display_intro()
 
     console.print("How can I help you?")
 
@@ -128,7 +148,7 @@ async def run(model: str, temperature: float, frequency_penalty: float, presence
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         agent_executor = get_agent_executor(model, temperature, frequency_penalty, presence_penalty, top_p, verbose=False)
-        await conversation_loop(agent_executor, user_input, prompt_style, model)
+        await __conversation_loop(agent_executor, user_input, prompt_style, model)
 
 
 if __name__ == "__main__":

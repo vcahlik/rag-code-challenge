@@ -7,6 +7,10 @@ MetadataType = Mapping[str, str | int | float | bool]
 
 
 class VectorStore:
+    """
+    A class to manage the embeddings and the vector database.
+    """
+
     def __init__(self) -> None:
         self._embedder: OpenAIEmbeddings | None = None
         self._chromadb_collection: chromadb.Collection | None = None

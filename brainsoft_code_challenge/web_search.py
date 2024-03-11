@@ -28,12 +28,22 @@ If the query cannot be answered using the text and no relevant information can b
 SUMMARY_PROMPT = ChatPromptTemplate.from_template(SUMMARY_TEMPLATE)
 
 
-def serp_api_search(query: str, num_results: int) -> list[str]:
+def __serp_api_search(query: str, num_results: int) -> list[str]:
+    """
+    Search Google using SerpAPI.
+
+    :param query: The query to search.
+    :param num_results: The number of results to return.
+    :return: The top URLs from the search.
+    """
     results = search.results(query)["organic"][:num_results]
     return [r["link"] for r in results]
 
 
-def scrape_text(url: str) -> str:
+def __scrape_text(url: str) -> str:
+    """
+    Function to scrape text from a webpage.
+    """
     try:
         response = requests.get(url, timeout=5)
         if response.status_code != 200:  # noqa: PLR2004
@@ -45,15 +55,23 @@ def scrape_text(url: str) -> str:
 
 
 def build_web_search_chain(model: str, temperature: float, model_kwargs: Mapping[str, Any]) -> RunnableSerializable:  # type: ignore
+    """
+    Builds a LangChain chain that searches Google and summarizes the top result pages.
+
+    :param model: The OpenAI model to use.
+    :param temperature: The temperature to use for the model.
+    :param model_kwargs: The model kwargs.
+    :return: The LangChain chain.
+    """
     scrape_and_summarize_chain = RunnablePassthrough.assign(
-        summary=RunnablePassthrough.assign(text=lambda x: scrape_text(x["url"])[:10000])
+        summary=RunnablePassthrough.assign(text=lambda x: __scrape_text(x["url"])[:10000])
         | SUMMARY_PROMPT
         | ChatOpenAI(model=model, max_tokens=WEB_SEARCH_SUMMARIZE_MAX_TOKENS, temperature=temperature, model_kwargs=dict(model_kwargs))
         | StrOutputParser()
     ) | (lambda x: f"URL: {x['url']}\nSUMMARY: {x['summary']}")
 
     return (
-        RunnablePassthrough.assign(urls=lambda x: serp_api_search(x["query"], 3))
+        RunnablePassthrough.assign(urls=lambda x: __serp_api_search(x["query"], 3))
         | (lambda x: [{"query": x["query"], "url": url} for url in x["urls"]])
         | scrape_and_summarize_chain.map()
         | (lambda x: "\n\n".join(x))

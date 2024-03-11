@@ -28,7 +28,10 @@ from brainsoft_code_challenge.constants import ACTION_HINTS
 from brainsoft_code_challenge.files import InputFile, UnsupportedFileTypeError, process_csv, read_pdf_file
 
 
-def initialize_chat() -> None:
+def __initialize_chat() -> None:
+    """
+    Initializes the chat session state.
+    """
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "model_config" not in st.session_state:
@@ -45,7 +48,10 @@ def initialize_chat() -> None:
         )
 
 
-def reset_chat(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float) -> None:
+def __reset_chat(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float) -> None:
+    """
+    Resets the chat session state with the given parameters. This clears the chat history and sets the model configuration.
+    """
     st.session_state.messages = []
     st.session_state.model_config = {
         "model": model,
@@ -59,9 +65,12 @@ def reset_chat(model: str, temperature: float, frequency_penalty: float, presenc
         del st.session_state.current_response
 
 
-def prepare_page() -> None:
+def __prepare_page() -> None:
+    """
+    Prepares the Streamlit page by initializing the chat and displaying the sidebar.
+    """
     st.set_page_config(layout="wide", page_title="Generative AI Python SDK Assistant")
-    initialize_chat()
+    __initialize_chat()
 
     with st.sidebar:
         model_config = st.session_state.model_config
@@ -80,12 +89,18 @@ def prepare_page() -> None:
             or model_config["presence_penalty"] != presence_penalty
             or model_config["top_p"] != top_p
         ):
-            col1.button("Apply & reset chat", type="primary", on_click=reset_chat, args=reset_chat_args)
+            col1.button("Apply & reset chat", type="primary", on_click=__reset_chat, args=reset_chat_args)
         else:
-            col1.button("Reset chat", on_click=reset_chat, args=reset_chat_args)
+            col1.button("Reset chat", on_click=__reset_chat, args=reset_chat_args)
 
 
-def render_actions(actions: Sequence[Mapping[str, str]], element: DeltaGenerator | None = None) -> None:
+def __render_actions(actions: Sequence[Mapping[str, str]], element: DeltaGenerator | None = None) -> None:
+    """
+    Displays the agent actions in the given container.
+
+    :param actions: The actions to display.
+    :param element: The container to display the actions in.
+    """
     for action in actions:
         hint = ACTION_HINTS[action["tool"]]
         query = action["query"]
@@ -94,7 +109,13 @@ def render_actions(actions: Sequence[Mapping[str, str]], element: DeltaGenerator
             st.text(action["output"])
 
 
-def read_attached_files(buffers: Sequence[UploadedFile] | None) -> list[InputFile]:
+def __read_attached_files(buffers: Sequence[UploadedFile] | None) -> list[InputFile]:
+    """
+    Reads the contents of the attached files.
+
+    :param buffers: The uploaded file buffers.
+    :return: The InputFile objects.
+    """
     if buffers is None:
         return []
     input_files = []
@@ -123,7 +144,13 @@ def read_attached_files(buffers: Sequence[UploadedFile] | None) -> list[InputFil
     return input_files
 
 
-def render_attached_files(message: Mapping[str, Any], element: DeltaGenerator | None = None) -> None:
+def __render_attached_files(message: Mapping[str, Any], element: DeltaGenerator | None = None) -> None:
+    """
+    Renders the attached files in the given container.
+
+    :param message: The message containing the attached files.
+    :param element: The container to display the attached files in.
+    """
     if "input_files" in message:
         file_statuses = []
         for input_file in message["input_files"]:
@@ -138,7 +165,10 @@ def render_attached_files(message: Mapping[str, Any], element: DeltaGenerator | 
             st.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
 
 
-def save_last_agent_output() -> None:
+def __save_last_agent_output() -> None:
+    """
+    Saves the last agent output to the chat history.
+    """
     if "current_response" in st.session_state:
         st.session_state.messages.append(
             {"role": "assistant", "content": st.session_state.current_response["stream_text"], "actions": st.session_state.current_response["actions"]}
@@ -146,17 +176,26 @@ def save_last_agent_output() -> None:
         del st.session_state.current_response
 
 
-def render_conversation_history() -> None:
-    save_last_agent_output()
+def __render_conversation_history() -> None:
+    """
+    Renders the conversation history.
+    """
+    __save_last_agent_output()
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            render_actions(message.get("actions", []))
-            render_attached_files(message)
+            __render_actions(message.get("actions", []))
+            __render_attached_files(message)
             st.markdown(message["content"])
 
 
-async def process_user_input(user_input: str, attached_files: Sequence[UploadedFile] | None) -> None:
-    input_files = read_attached_files(attached_files)
+async def __process_user_input(user_input: str, attached_files: Sequence[UploadedFile] | None) -> None:
+    """
+    Processes the user input and renders the assistant's response.
+
+    :param user_input: The input submitted by the user.
+    :param attached_files: The files attached with the input.
+    """
+    input_files = __read_attached_files(attached_files)
     message: dict[str, Any] = {"role": "user", "content": user_input}
     if attached_files:
         message["input_files"] = input_files
@@ -166,11 +205,10 @@ async def process_user_input(user_input: str, attached_files: Sequence[UploadedF
 
     assistant_message = st.chat_message("assistant")
     actions_container = assistant_message.container()
-    render_attached_files(message, element=assistant_message)
+    __render_attached_files(message, element=assistant_message)
     stream_container = assistant_message.empty()
     st.session_state.current_response = {"stream_text": "", "actions": []}
-    model = st.session_state.model_config["model"]
-    agent_input, input_was_cut_off = build_agent_input(user_input, input_files, model)
+    agent_input, input_was_cut_off = build_agent_input(user_input, input_files, model=st.session_state.model_config["model"])
     if input_was_cut_off:
         st.toast("The input was too long and therefore was cut off.", icon="⚠️")
     async for event in st.session_state.agent_executor.astream_events(agent_input, version="v1"):
@@ -187,22 +225,25 @@ async def process_user_input(user_input: str, attached_files: Sequence[UploadedF
                 "output": event["data"]["output"],
             }
             st.session_state.current_response["actions"].append(action)
-            render_actions([action], element=actions_container)
+            __render_actions([action], element=actions_container)
         elif event["event"] == "on_chat_model_stream":
             st.session_state.current_response["stream_text"] += event["data"]["chunk"].content
             stream_container.markdown(st.session_state.current_response["stream_text"])
-    save_last_agent_output()
+    __save_last_agent_output()
 
 
 async def render_streamlit_ui() -> None:
+    """
+    Renders the whole Streamlit app.
+    """
     st.title("Generative AI Python SDK Assistant")
 
     with st.expander("Attach files", expanded=False):
         st.warning("These files will be included with each subsequent query. Make sure to clear them after you submit your message.", icon="⚠️")
         attached_files = st.file_uploader("Upload a file", type=["csv", "pdf"], accept_multiple_files=True, label_visibility="collapsed")
 
-    render_conversation_history()
+    __render_conversation_history()
 
     attached_files_note = f" ({len(attached_files)} file{'s' if len(attached_files) != 1 else ''} attached)" if attached_files else ""
     if user_input := st.chat_input(f"How can I help you?{attached_files_note}"):
-        await process_user_input(user_input, attached_files)
+        await __process_user_input(user_input, attached_files)
