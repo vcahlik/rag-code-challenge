@@ -53,20 +53,26 @@ class FilePayload(BaseModel):
 
 class QueryPayload(BaseModel):
     user_input: str
-    messages: list[MessagePayload] | None = None
+    history: list[MessagePayload] | None = None
     files: list[FilePayload] | None = None
     model: str = DEFAULT_MODEL
     temperature: float = DEFAULT_TEMPERATURE
     frequency_penalty: float = DEFAULT_FREQUENCY_PENALTY
     presence_penalty: float = DEFAULT_PRESENCE_PENALTY
     top_p: float = DEFAULT_TOP_P
+    return_history: bool = False
+
+    class Config:
+        extra = "forbid"
 
 
-def parse_messages(messages: Sequence[Mapping[str, str]]) -> list[MemoryContextType]:
+def parse_history(history: Sequence[Mapping[str, str]]) -> list[MemoryContextType]:
     contexts = []
-    if not len(messages) % 2 == 0:
-        raise ValueError("The number of messages must be even or zero.")
-    for odd_message, even_message in zip(messages, messages[1:], strict=False):
+    if not len(history) % 2 == 0:
+        raise ValueError("The number of messages in history must be even or zero.")
+    for i in range(0, len(history), 2):
+        odd_message = history[i]
+        even_message = history[i + 1]
         if odd_message["type"] != "human":
             raise ValueError('Every odd message must be of type "human".')
         if even_message["type"] != "ai":
@@ -117,16 +123,16 @@ def read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFil
 
 
 @app.get("/chat")
-def get_chat_response(payload: QueryPayload) -> dict[str, str]:
+def get_chat_response(payload: QueryPayload) -> dict[str, Any]:
     payload_dict = payload.dict()
-    messages = payload_dict["messages"]
-    if messages is None:
-        messages = []
+    history = payload_dict["history"]
+    if history is None:
+        history = []
 
     try:
         validate_config(payload_dict)
         input_files = read_attached_files(payload_dict["files"])
-        contexts = parse_messages(messages)
+        contexts = parse_history(history)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -141,4 +147,8 @@ def get_chat_response(payload: QueryPayload) -> dict[str, str]:
     )
     agent_input = build_agent_input(payload_dict["user_input"], input_files)
     output = agent_executor.invoke(agent_input)
-    return {"input": agent_input["input"], "output": output["output"]}
+
+    response = {"input": agent_input["input"], "output": output["output"]}
+    if payload_dict["return_history"]:
+        response["history"] = history + [{"type": "human", "content": agent_input["input"]}, {"type": "ai", "content": output["output"]}]
+    return response
