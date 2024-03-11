@@ -10,6 +10,10 @@ class InputFile:
     error: str | None = None
 
 
+class UnsupportedFileTypeError(ValueError):
+    pass
+
+
 def process_csv(file=None, content: str | None = None) -> str:  # type: ignore
     if (file is None) == (content is None):
         raise ValueError("Exactly one of file and content must be provided.")

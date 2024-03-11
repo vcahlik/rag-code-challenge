@@ -28,7 +28,7 @@ from brainsoft_code_challenge.config import (  # noqa: E402
     MIN_TOP_P,
     MODEL_CHOICES,
 )
-from brainsoft_code_challenge.files import InputFile, process_csv, read_pdf_file  # noqa: E402
+from brainsoft_code_challenge.files import InputFile, UnsupportedFileTypeError, process_csv, read_pdf_file  # noqa: E402
 
 app = FastAPI()
 
@@ -101,10 +101,9 @@ def read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFil
     input_files = []
     for file_payload in file_payloads:
         file_name = file_payload["file_name"]
-        raw_content = base64.b64decode(file_payload["content"])
         error = None
-
         try:
+            raw_content = base64.b64decode(file_payload["content"])
             if file_name.endswith(".csv"):
                 parsed_content = process_csv(content=raw_content.decode("utf-8"))
             elif file_name.endswith(".pdf"):
@@ -114,7 +113,9 @@ def read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFil
                     tmpfile.flush()
                     parsed_content = read_pdf_file(tmp_filename)
             else:
-                raise ValueError("Unsupported file type")
+                raise UnsupportedFileTypeError("Unsupported file type")
+        except UnsupportedFileTypeError as e:
+            raise e
         except Exception as e:
             raise ValueError("An error occurred while reading the file contents.") from e
         input_file = InputFile(name=file_name, content=parsed_content, error=error)
