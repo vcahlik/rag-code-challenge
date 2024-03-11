@@ -32,6 +32,7 @@ from brainsoft_code_challenge.config import (  # noqa: E402
     MIN_TOP_P,
     MODEL_CHOICES,
 )
+from brainsoft_code_challenge.utils import is_pytest_running  # noqa: E402
 
 if TYPE_CHECKING:
     from langchain.agents import AgentExecutor
@@ -106,6 +107,8 @@ async def conversation_loop(agent_executor: "AgentExecutor", user_input: str, pr
                         full_response += event["data"]["chunk"].content
                         live.update(Markdown(full_response))
             input_files = []
+        if is_pytest_running():
+            break
         user_input = await session.prompt_async("User: ", style=prompt_style)
 
 
@@ -115,7 +118,10 @@ async def run(model: str, temperature: float, frequency_penalty: float, presence
     console.print("How can I help you?")
 
     prompt_style = Style.from_dict({"prompt": "bold"})
-    user_input = await session.prompt_async("User: ", style=prompt_style)
+    if is_pytest_running():
+        user_input = "Who are you?"
+    else:
+        user_input = await session.prompt_async("User: ", style=prompt_style)
 
     from brainsoft_code_challenge.agent import get_agent_executor
 

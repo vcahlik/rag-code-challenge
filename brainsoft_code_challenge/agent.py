@@ -8,13 +8,12 @@ from langchain.chains.conversation.memory import ConversationSummaryBufferMemory
 from langchain_community.tools import BearlyInterpreterTool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
-from langchain_text_splitters import CharacterTextSplitter
 from pydantic.v1 import BaseModel, Field
 
-from brainsoft_code_challenge.config import MODEL_CHOICES, WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_TEMPERATURE
-from brainsoft_code_challenge.constants import CONTEXT_WINDOW_SIZE_IN_TOKENS_BY_MODEL, OUTPUT_TOKEN_LIMIT, TOOLS_AND_SYSTEM_PROMPT_LENGTH_TOKENS
+from brainsoft_code_challenge.config import WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_TEMPERATURE
+from brainsoft_code_challenge.constants import OUTPUT_TOKEN_LIMIT
 from brainsoft_code_challenge.files import InputFile
-from brainsoft_code_challenge.tokenizer import count_tokens
+from brainsoft_code_challenge.tokenizer import get_memory_token_limit, shorten_input_text_for_model
 from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
 from brainsoft_code_challenge.web_search import build_web_search_chain
 
@@ -22,23 +21,6 @@ MemoryContextType = tuple[dict[str, str], dict[str, str]]
 
 vector_store = VectorStore()
 web_search_chain = build_web_search_chain(WEB_SEARCH_MODEL, WEB_SEARCH_TEMPERATURE, WEB_SEARCH_MODEL_KWARGS)
-
-
-def __get_universal_token_limit(model: str) -> int:
-    return (CONTEXT_WINDOW_SIZE_IN_TOKENS_BY_MODEL[model] - TOOLS_AND_SYSTEM_PROMPT_LENGTH_TOKENS - OUTPUT_TOKEN_LIMIT) // 2
-
-
-def get_input_token_limit(model: str) -> int:
-    return __get_universal_token_limit(model)
-
-
-def get_memory_token_limit(model: str) -> int:
-    return __get_universal_token_limit(model)
-
-
-INPUT_TEXT_SPLITTER_BY_MODEL = {
-    model: CharacterTextSplitter(chunk_size=get_input_token_limit(model), chunk_overlap=0, length_function=count_tokens) for model in MODEL_CHOICES
-}
 
 
 def get_unique_results(results: Sequence[MetadataType], n_results: int) -> list[MetadataType]:
@@ -154,8 +136,5 @@ def build_agent_input(user_input: str, input_files: Sequence[InputFile], model: 
         input_text = joined_file_texts + "\n\nEnd of attachments, user input follows\n\n========================================\n\n" + user_input
     else:
         input_text = user_input
-    input_text = input_text.strip()
-    split_text = INPUT_TEXT_SPLITTER_BY_MODEL[model].split_text(input_text)
-    shortened_input_text = split_text[0] if split_text else input_text
-    input_was_cut_off = len(shortened_input_text) < len(input_text)
+    shortened_input_text, input_was_cut_off = shorten_input_text_for_model(input_text, model)
     return {"input": shortened_input_text}, input_was_cut_off

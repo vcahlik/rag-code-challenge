@@ -123,9 +123,9 @@ def read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFil
     return input_files
 
 
-@app.get("/chat")
+@app.post("/chat")
 def get_chat_response(payload: QueryPayload) -> dict[str, Any]:
-    payload_dict = payload.dict()
+    payload_dict = payload.model_dump()
     history = payload_dict["history"]
     if history is None:
         history = []
