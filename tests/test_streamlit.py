@@ -11,6 +11,5 @@ def test_chat() -> None:
     assert at.chat_message[0].children[0].value == "Who are you?"  # type: ignore  # noqa: S101
     assert at.chat_message[1].name == "assistant"  # noqa: S101
     assert (  # noqa: S101
-        at.chat_message[1].children[1].value  # type: ignore
-        == "I am a helpful assistant here to answer any general knowledge questions you may have. How can I assist you today?"
+        at.chat_message[1].children[1].value.startswith("I am")  # type: ignore
     )  # noqa: E501

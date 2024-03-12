@@ -1,3 +1,5 @@
+import os
+
 from brainsoft_code_challenge.utils import load_environment
 
 load_environment()
@@ -32,6 +34,7 @@ from brainsoft_code_challenge.config import (  # noqa: E402
     MIN_TOP_P,
     MODEL_CHOICES,
 )
+from brainsoft_code_challenge.constants import PYTEST_USER_INPUT_ENV_VAR  # noqa: E402
 from brainsoft_code_challenge.utils import is_pytest_running  # noqa: E402
 
 if TYPE_CHECKING:
@@ -98,6 +101,7 @@ async def __conversation_loop(agent_executor: "AgentExecutor", user_input: str, 
     from brainsoft_code_challenge.agent import build_agent_input
 
     input_files = []
+    i = 1
     while True:
         if user_input.strip().lower() == "quit":
             sys.exit(0)
@@ -125,8 +129,10 @@ async def __conversation_loop(agent_executor: "AgentExecutor", user_input: str, 
                         live.update(Markdown(full_response))
             input_files = []
         if is_pytest_running():
-            break
-        user_input = await session.prompt_async("User: ", style=prompt_style)
+            user_input = os.environ[f"{PYTEST_USER_INPUT_ENV_VAR}_{i}"]
+        else:
+            user_input = await session.prompt_async("User: ", style=prompt_style)
+        i += 1
 
 
 async def run(model: str, temperature: float, frequency_penalty: float, presence_penalty: float, top_p: float) -> None:
@@ -139,7 +145,7 @@ async def run(model: str, temperature: float, frequency_penalty: float, presence
 
     prompt_style = Style.from_dict({"prompt": "bold"})
     if is_pytest_running():
-        user_input = "Who are you?"
+        user_input = os.environ[f"{PYTEST_USER_INPUT_ENV_VAR}_0"]
     else:
         user_input = await session.prompt_async("User: ", style=prompt_style)
 

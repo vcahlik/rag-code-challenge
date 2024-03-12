@@ -1,6 +1,11 @@
-A,B
-1,2
-3,4
-5,6
-10,20
-30,40
+name,birthday,address,phone number,sex
+John Doe,1990-05-12,123 Elm St,555-1234,Male
+Jane Smith,1988-11-30,456 Oak St,555-5678,Female
+Mike Johnson,1975-02-25,789 Pine St,555-9012,Male
+Emily Davis,1982-09-17,321 Maple St,555-3456,Female
+Chris Wilson,1995-07-08,654 Cedar St,555-7890,Male
+Anna Brown,1993-03-05,987 Walnut St,555-6543,Female
+Ethan Taylor,1980-12-14,246 Chestnut St,555-0987,Male
+Olivia Anderson,1978-04-22,135 Birch St,555-4321,Female
+Liam Martinez,1985-06-09,864 Sequoia St,555-8765,Male
+Sophia Hernandez,1991-01-28,573 Redwood St,555-1239,Female
