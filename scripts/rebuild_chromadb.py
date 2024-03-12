@@ -1,15 +1,19 @@
-import argparse
-import json
-from collections.abc import Sequence
-from typing import cast
-from uuid import uuid4
+from brainsoft_code_challenge.utils import load_environment
 
-import chromadb
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from tqdm.autonotebook import tqdm
+load_environment()
 
-from brainsoft_code_challenge.tokenizer import count_tokens
-from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
+import argparse  # noqa: E402
+import json  # noqa: E402
+from collections.abc import Sequence  # noqa: E402
+from typing import cast  # noqa: E402
+from uuid import uuid4  # noqa: E402
+
+import chromadb  # noqa: E402
+from langchain.text_splitter import RecursiveCharacterTextSplitter  # noqa: E402
+from tqdm.autonotebook import tqdm  # noqa: E402
+
+from brainsoft_code_challenge.tokenizer import count_tokens  # noqa: E402
+from brainsoft_code_challenge.vector_store import MetadataType, VectorStore  # noqa: E402
 
 vector_store = VectorStore()
 

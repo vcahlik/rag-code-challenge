@@ -4,8 +4,8 @@ load_environment()
 
 import json  # noqa: E402
 
-from brainsoft_code_challenge.scraping import scrape_all  # noqa: E402
-from brainsoft_code_challenge.splitting import __split_long_document, split_document  # noqa: E402
+from brainsoft_code_challenge.data_loading.scraping import scrape_all  # noqa: E402
+from brainsoft_code_challenge.data_loading.splitting import __split_long_document, split_document  # noqa: E402
 
 
 def test_scraping() -> None:

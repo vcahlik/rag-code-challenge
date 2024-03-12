@@ -1,85 +1,21 @@
 import datetime
 from collections.abc import Sequence
-from typing import cast
 
-from langchain.agents import AgentExecutor, tool
+from langchain.agents import AgentExecutor
 from langchain.agents.openai_tools.base import create_openai_tools_agent
 from langchain.chains.conversation.memory import ConversationSummaryBufferMemory
 from langchain_community.tools import BearlyInterpreterTool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
-from pydantic.v1 import BaseModel, Field
 
-from brainsoft_code_challenge.config import CONVERSATION_SUMMARY_MODEL, WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_TEMPERATURE
+from brainsoft_code_challenge.config import CONVERSATION_SUMMARY_MODEL
 from brainsoft_code_challenge.constants import OUTPUT_TOKEN_LIMIT
 from brainsoft_code_challenge.files import InputFile
 from brainsoft_code_challenge.tokenizer import get_memory_token_limit, shorten_input_text_for_model
-from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
-from brainsoft_code_challenge.web_search import build_web_search_chain
+from brainsoft_code_challenge.tools.documentation_search import search_documentation
+from brainsoft_code_challenge.tools.web_search import search_google
 
 MemoryContextType = tuple[dict[str, str], dict[str, str]]
-
-vector_store = VectorStore()
-web_search_chain = build_web_search_chain(WEB_SEARCH_MODEL, WEB_SEARCH_TEMPERATURE, WEB_SEARCH_MODEL_KWARGS)
-
-
-def __get_unique_results(results: Sequence[MetadataType], n_results: int) -> list[MetadataType]:
-    """
-    Documentation documents are split into smaller "splits", which are split into "chunks". Embeddings are calculated chunk-wise,
-    so we need to ensure that we only return unique results, where the same document split is not repeated.
-
-    :param results: Results from the vector databaser.
-    :param n_results: The number of unique results to return.
-    :return: The unique results.
-    """
-    unique_results: list[MetadataType] = []
-    for result in results:
-        source_url = result["source_url"]
-        split_part = result.get("split_part")
-
-        is_new = True
-        for unique_result in unique_results:
-            if unique_result["source_url"] == source_url and unique_result.get("split_part") == split_part:
-                is_new = False
-                break
-
-        if is_new:
-            unique_results.append(result)
-            if len(unique_results) >= n_results:
-                break
-    return unique_results
-
-
-class DocumentationQuery(BaseModel):
-    query: str = Field(description="The query to execute")
-
-
-@tool(args_schema=DocumentationQuery)
-def search_documentation(query: str) -> str:
-    """Searches the documentation using a natural language query."""  # Tool description for agent
-    query_embeddings = cast(list[Sequence[float]], vector_store.get_embedder().embed_documents([query]))
-    metadatas = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"]
-    if not metadatas:
-        return "No results found."
-    results = metadatas[0]
-    results = __get_unique_results(results, 3)
-    outputs = []
-    for result in results:
-        output = f"Documentation page URL: {result['documentation_url']}\n"
-        output += str(result["content"])
-        outputs.append(output)
-    return "\n\n========================================\n\n".join(outputs)
-
-
-class GoogleQuery(BaseModel):
-    query: str = Field(description="The query to execute")
-
-
-@tool(args_schema=DocumentationQuery)
-def search_google(query: str) -> str:
-    """Searches Google and returns the summaries of the most relevant results."""  # Tool description for agent
-    result = web_search_chain.invoke({"query": query})
-    return str(result)
 
 
 bearly_tool = BearlyInterpreterTool(api_key="bearly-sk-Ln465UBXv2wHRyBN25BZoVTMAA")

@@ -1,8 +1,12 @@
-import argparse
-import json
-import logging
+from brainsoft_code_challenge.utils import load_environment
 
-from brainsoft_code_challenge.splitting import split_document
+load_environment()
+
+import argparse  # noqa: E402
+import json  # noqa: E402
+import logging  # noqa: E402
+
+from brainsoft_code_challenge.data_loading.splitting import split_document  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 

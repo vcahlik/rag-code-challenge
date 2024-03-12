@@ -2,7 +2,7 @@ from brainsoft_code_challenge.utils import load_environment
 
 load_environment()
 
-from brainsoft_code_challenge.agent import __get_unique_results  # noqa: E402
+from brainsoft_code_challenge.tools.documentation_search import __get_unique_results  # noqa: E402
 from brainsoft_code_challenge.vector_store import MetadataType  # noqa: E402
 
 

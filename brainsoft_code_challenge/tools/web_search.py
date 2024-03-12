@@ -3,14 +3,16 @@ from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
-from langchain.prompts import ChatPromptTemplate
+from langchain.agents import tool
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_community.utilities import GoogleSerperAPIWrapper
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSerializable
 from langchain_openai import ChatOpenAI
+from pydantic.v1 import BaseModel, Field
 
-from brainsoft_code_challenge.config import WEB_SEARCH_SUMMARIZE_MAX_TOKENS
+from brainsoft_code_challenge.config import WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_SUMMARIZE_MAX_TOKENS, WEB_SEARCH_TEMPERATURE
 
 search = GoogleSerperAPIWrapper()
 
@@ -76,3 +78,17 @@ def build_web_search_chain(model: str, temperature: float, model_kwargs: Mapping
         | scrape_and_summarize_chain.map()
         | (lambda x: "\n\n".join(x))
     )
+
+
+web_search_chain = build_web_search_chain(WEB_SEARCH_MODEL, WEB_SEARCH_TEMPERATURE, WEB_SEARCH_MODEL_KWARGS)
+
+
+class GoogleQuery(BaseModel):
+    query: str = Field(description="The query to execute")
+
+
+@tool(args_schema=GoogleQuery)
+def search_google(query: str) -> str:
+    """Searches Google and returns the summaries of the most relevant results."""  # Tool description for agent
+    result = web_search_chain.invoke({"query": query})
+    return str(result)
