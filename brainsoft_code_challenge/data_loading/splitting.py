@@ -30,7 +30,7 @@ def __merge_small_splits(splits: Sequence[str], min_length: int) -> list[str]:
 
 def __split_long_document(document: Mapping[str, Any], min_length: int | None) -> list[dict[str, Any]]:
     """
-    Split a long document into smaller splits.
+    Split a long document into smaller splits (by reStructuredText subsections).
 
     :param document: The document to split.
     :param min_length: The desired minimum length of each section in characters.
