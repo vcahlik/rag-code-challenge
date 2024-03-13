@@ -211,24 +211,30 @@ async def __process_user_input(user_input: str, attached_files: Sequence[Uploade
     agent_input, input_was_cut_off = build_agent_input(user_input, input_files, model=st.session_state.model_config["model"])
     if input_was_cut_off:
         st.toast("The input was too long and therefore was cut off.", icon="⚠️")
-    async for event in st.session_state.agent_executor.astream_events(agent_input, version="v1"):
-        if event["event"] == "on_tool_end":
-            if "query" in event["data"]["input"]:
-                query = event["data"]["input"]["query"]
-            elif "python_code" in event["data"]["input"]:
-                query = event["data"]["input"]["python_code"]
-            else:
-                query = ""
-            action = {
-                "tool": event["name"],
-                "query": query,
-                "output": event["data"]["output"],
-            }
-            st.session_state.current_response["actions"].append(action)
-            __render_actions([action], element=actions_container)
-        elif event["event"] == "on_chat_model_stream":
-            st.session_state.current_response["stream_text"] += event["data"]["chunk"].content
-            stream_container.markdown(st.session_state.current_response["stream_text"])
+    try:
+        async for event in st.session_state.agent_executor.astream_events(agent_input, version="v1"):
+            if event["event"] == "on_tool_start":
+                actions_container = assistant_message.container()
+                stream_container = assistant_message.empty()
+            if event["event"] == "on_tool_end":
+                if "query" in event["data"]["input"]:
+                    query = event["data"]["input"]["query"]
+                elif "python_code" in event["data"]["input"]:
+                    query = event["data"]["input"]["python_code"]
+                else:
+                    query = ""
+                action = {
+                    "tool": event["name"],
+                    "query": query,
+                    "output": event["data"]["output"],
+                }
+                st.session_state.current_response["actions"].append(action)
+                __render_actions([action], element=actions_container)
+            elif event["event"] == "on_chat_model_stream":
+                st.session_state.current_response["stream_text"] += event["data"]["chunk"].content
+                stream_container.markdown(st.session_state.current_response["stream_text"])
+    except Exception as e:
+        st.toast(f"An error occurred while obtaining the response: {e}", icon="⚠️")
     __save_last_agent_output()
 
 

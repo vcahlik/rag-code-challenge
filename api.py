@@ -37,6 +37,10 @@ from brainsoft_code_challenge.tokenizer import count_tokens, get_memory_token_li
 app = FastAPI()
 
 
+class InvalidInputError(ValueError):
+    pass
+
+
 class MessageType(Enum):
     HUMAN = "human"
     AI = "ai"
@@ -77,7 +81,7 @@ def __parse_history(history: Sequence[Mapping[str, str]], model: str) -> list[Me
     """
     total_token_length = sum([count_tokens(message["content"]) for message in history])
     if total_token_length > get_memory_token_limit(model):
-        raise ValueError(f"The history's length of {total_token_length} tokens exceeds the maximum length of {get_memory_token_limit(model)} tokens.")
+        raise InvalidInputError(f"The history's length of {total_token_length} tokens exceeds the maximum length of {get_memory_token_limit(model)} tokens.")
     contexts = []
     if history and history[0]["type"] == MessageType.AI.value:
         history = [{"type": MessageType.HUMAN.value, "content": ""}] + list(history)
@@ -85,7 +89,7 @@ def __parse_history(history: Sequence[Mapping[str, str]], model: str) -> list[Me
         odd_message = history[i]
         even_message = history[i + 1]
         if odd_message["type"] != MessageType.HUMAN.value or even_message["type"] != MessageType.AI.value:
-            raise ValueError('The history must be composed of alternating "human" and "ai" messages, with the last message being of type "ai".')
+            raise InvalidInputError('The history must be composed of alternating "human" and "ai" messages, with the last message being of type "ai".')
         context = ({"input": str(odd_message["content"])}, {"output": str(even_message["content"])})
         contexts.append(context)
     return contexts
@@ -93,20 +97,20 @@ def __parse_history(history: Sequence[Mapping[str, str]], model: str) -> list[Me
 
 def __validate_config(payload: Mapping[str, Any]) -> None:
     """
-    Validates the model configuration from the request payload dictionary. Raises a ValueError upon failure.
+    Validates the model configuration from the request payload dictionary. Raises a InvalidInputError upon failure.
 
     :param payload: The request payload dictionary.
     """
     if payload["model"] not in MODEL_CHOICES:
-        raise ValueError(f"Model must be one of {MODEL_CHOICES}")
+        raise InvalidInputError(f"Model must be one of {MODEL_CHOICES}")
     if not MIN_TEMPERATURE <= payload["temperature"] <= MAX_TEMPERATURE:
-        raise ValueError(f"Temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}")
+        raise InvalidInputError(f"Temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}")
     if not MIN_FREQUENCY_PENALTY <= payload["frequency_penalty"] <= MAX_FREQUENCY_PENALTY:
-        raise ValueError(f"Frequency penalty must be between {MIN_FREQUENCY_PENALTY} and {MAX_FREQUENCY_PENALTY}")
+        raise InvalidInputError(f"Frequency penalty must be between {MIN_FREQUENCY_PENALTY} and {MAX_FREQUENCY_PENALTY}")
     if not MIN_PRESENCE_PENALTY <= payload["presence_penalty"] <= MAX_PRESENCE_PENALTY:
-        raise ValueError(f"Presence penalty must be between {MIN_PRESENCE_PENALTY} and {MAX_PRESENCE_PENALTY}")
+        raise InvalidInputError(f"Presence penalty must be between {MIN_PRESENCE_PENALTY} and {MAX_PRESENCE_PENALTY}")
     if not MIN_TOP_P <= payload["top_p"] <= MAX_TOP_P:
-        raise ValueError(f"Top-p must be between {MIN_TOP_P} and {MAX_TOP_P}")
+        raise InvalidInputError(f"Top-p must be between {MIN_TOP_P} and {MAX_TOP_P}")
 
 
 def __read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputFile]:
@@ -137,7 +141,7 @@ def __read_attached_files(file_payloads: list[Mapping[str, str]]) -> list[InputF
         except UnsupportedFileTypeError as e:
             raise e
         except Exception as e:
-            raise ValueError("An error occurred while reading the file contents.") from e
+            raise InvalidInputError("An error occurred while reading the file contents.") from e
         input_file = InputFile(name=file_name, content=parsed_content, error=error)
         input_files.append(input_file)
     return input_files
@@ -174,7 +178,7 @@ def __get_history_from_agent_executor(agent_executor: AgentExecutor) -> list[dic
                 continue  # This should never happen, there should only be a single system message
             summary = message.content
         else:
-            raise ValueError(f"Unknown message type: {str(type(message))}")
+            raise InvalidInputError(f"Unknown message type: {str(type(message))}")
     if summary is not None:
         summary_message_type = MessageType.AI
         if history and history[0]["type"] == MessageType.AI.value:
@@ -201,7 +205,7 @@ def get_chat_response(payload: ChatRequestPayload) -> dict[str, Any]:
         __validate_config(payload_dict)
         input_files = __read_attached_files(payload_dict["files"])
         contexts = __parse_history(history, payload_dict["model"])
-    except ValueError as e:
+    except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     agent_executor = get_agent_executor(
@@ -214,7 +218,11 @@ def get_chat_response(payload: ChatRequestPayload) -> dict[str, Any]:
         memory_contexts=contexts,
     )
     agent_input, input_was_cut_off = build_agent_input(payload_dict["user_input"], input_files, payload_dict["model"])
-    output = agent_executor.invoke(agent_input)
+    try:
+        output = agent_executor.invoke(agent_input)
+    except Exception as e:
+        # In case of a public API, we should not expose the exception message
+        raise HTTPException(status_code=500, detail=f"An error occurred while obtaining the agent response: {e}") from e
 
     response = {"input": agent_input["input"], "output": output["output"]}
     if payload_dict["return_history"]:

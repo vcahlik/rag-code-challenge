@@ -42,7 +42,7 @@ class DocumentationQuery(BaseModel):
 
 @tool(args_schema=DocumentationQuery)
 def search_documentation(query: str) -> str:
-    """Searches the documentation using a natural language query."""  # Tool description for agent
+    """Searches the documentation (development version) using a natural language query."""  # Tool description for agent
     query_embeddings = cast(list[Sequence[float]], vector_store.get_embedder().embed_documents([query]))
     metadatas = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"]
     if not metadatas:

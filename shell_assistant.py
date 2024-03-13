@@ -122,11 +122,14 @@ async def __conversation_loop(agent_executor: "AgentExecutor", user_input: str, 
             agent_input, input_was_cut_off = build_agent_input(user_input, input_files, model)
             if input_was_cut_off:
                 console.print(Markdown("**System:** The input was too long and therefore was cut off."))
-            with Live(response_markdown, console=console, auto_refresh=True) as live:
-                async for event in agent_executor.astream_events(agent_input, version="v1"):
-                    if event["event"] == "on_chat_model_stream":
-                        full_response += event["data"]["chunk"].content
-                        live.update(Markdown(full_response))
+            try:
+                with Live(response_markdown, console=console, auto_refresh=True) as live:
+                    async for event in agent_executor.astream_events(agent_input, version="v1"):
+                        if event["event"] == "on_chat_model_stream":
+                            full_response += event["data"]["chunk"].content
+                            live.update(Markdown(full_response))
+            except Exception as e:
+                console.print(Markdown(f"**System:** An error occurred while obtaining the agent response: {e}"))
             input_files = []
         if is_pytest_running():
             user_input = os.environ[f"{PYTEST_USER_INPUT_ENV_VAR}_{i}"]
@@ -167,16 +170,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not MIN_TEMPERATURE <= args.temperature <= MAX_TEMPERATURE:
-        print(f"Temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}")
+        print(f"Temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}", file=sys.stderr)
         sys.exit(1)
     if not MIN_FREQUENCY_PENALTY <= args.frequency_penalty <= MAX_FREQUENCY_PENALTY:
-        print(f"Frequency penalty must be between {MIN_FREQUENCY_PENALTY} and {MAX_FREQUENCY_PENALTY}")
+        print(f"Frequency penalty must be between {MIN_FREQUENCY_PENALTY} and {MAX_FREQUENCY_PENALTY}", file=sys.stderr)
         sys.exit(1)
     if not MIN_PRESENCE_PENALTY <= args.presence_penalty <= MAX_PRESENCE_PENALTY:
-        print(f"Presence penalty must be between {MIN_PRESENCE_PENALTY} and {MAX_PRESENCE_PENALTY}")
+        print(f"Presence penalty must be between {MIN_PRESENCE_PENALTY} and {MAX_PRESENCE_PENALTY}", file=sys.stderr)
         sys.exit(1)
     if not MIN_TOP_P <= args.top_p <= MAX_TOP_P:
-        print(f"Top-p must be between {MIN_TOP_P} and {MAX_TOP_P}")
+        print(f"Top-p must be between {MIN_TOP_P} and {MAX_TOP_P}", file=sys.stderr)
         sys.exit(1)
 
     with contextlib.suppress(KeyboardInterrupt, EOFError):
