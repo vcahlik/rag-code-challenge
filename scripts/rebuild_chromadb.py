@@ -12,6 +12,7 @@ import chromadb  # noqa: E402
 from langchain.text_splitter import RecursiveCharacterTextSplitter  # noqa: E402
 from tqdm.autonotebook import tqdm  # noqa: E402
 
+from brainsoft_code_challenge.config import CHROMADB_CHUNK_OVERLAP, CHROMADB_CHUNK_SIZE  # noqa: E402
 from brainsoft_code_challenge.tokenizer import count_tokens  # noqa: E402
 from brainsoft_code_challenge.vector_store import MetadataType, VectorStore  # noqa: E402
 
@@ -32,7 +33,9 @@ def rebuild_chromadb(data: Sequence[MetadataType]) -> None:
         chroma_client.delete_collection("documentation")
     collection = chroma_client.create_collection(name="documentation", metadata={"hnsw:space": "ip"})
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=75, length_function=count_tokens, separators=["\n\n", "\n", " ", ""])
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHROMADB_CHUNK_SIZE, chunk_overlap=CHROMADB_CHUNK_OVERLAP, length_function=count_tokens, separators=["\n\n", "\n", " ", ""]
+    )  # noqa: E501
 
     batch_limit = 100
     text_chunks = []

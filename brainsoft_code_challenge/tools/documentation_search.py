@@ -4,6 +4,7 @@ from typing import cast
 from langchain.agents import tool
 from pydantic.v1 import BaseModel, Field
 
+from brainsoft_code_challenge.config import N_CHROMADB_RESULTS, N_CHROMADB_UNIQUE_RESULTS
 from brainsoft_code_challenge.vector_store import MetadataType, VectorStore
 
 vector_store = VectorStore()
@@ -44,11 +45,13 @@ class DocumentationQuery(BaseModel):
 def search_documentation(query: str) -> str:
     """Searches the documentation (development version) using a natural language query."""  # Tool description for agent
     query_embeddings = cast(list[Sequence[float]], vector_store.get_embedder().embed_documents([query]))
-    metadatas = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=15, include=["metadatas"])["metadatas"]
+    metadatas = vector_store.get_chromadb_collection().query(query_embeddings=query_embeddings, n_results=N_CHROMADB_RESULTS, include=["metadatas"])[
+        "metadatas"
+    ]  # noqa: E501
     if not metadatas:
         return "No results found."
     results = metadatas[0]
-    results = __get_unique_results(results, 3)
+    results = __get_unique_results(results, n_results=N_CHROMADB_UNIQUE_RESULTS)
     outputs = []
     for result in results:
         output = f"Documentation page URL: {result['documentation_url']}\n"

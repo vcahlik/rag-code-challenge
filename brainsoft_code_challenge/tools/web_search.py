@@ -12,7 +12,15 @@ from langchain_core.runnables import RunnableSerializable
 from langchain_openai import ChatOpenAI
 from pydantic.v1 import BaseModel, Field
 
-from brainsoft_code_challenge.config import WEB_SEARCH_MODEL, WEB_SEARCH_MODEL_KWARGS, WEB_SEARCH_SUMMARIZE_MAX_TOKENS, WEB_SEARCH_TEMPERATURE
+from brainsoft_code_challenge.config import (
+    N_WEB_SEARCH_RESULTS,
+    WEB_SEARCH_MODEL,
+    WEB_SEARCH_MODEL_KWARGS,
+    WEB_SEARCH_SCRAPING_MAX_RESULT_LENGTH,
+    WEB_SEARCH_SCRAPING_TIMEOUT_SECONDS,
+    WEB_SEARCH_SUMMARIZE_MAX_TOKENS,
+    WEB_SEARCH_TEMPERATURE,
+)
 
 search = GoogleSerperAPIWrapper()
 
@@ -47,7 +55,7 @@ def __scrape_text(url: str) -> str:
     Function to scrape text from a webpage.
     """
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=WEB_SEARCH_SCRAPING_TIMEOUT_SECONDS)
         if response.status_code != 200:  # noqa: PLR2004
             return f"Failed to retrieve the webpage: Status code {response.status_code}"
         soup = BeautifulSoup(response.text, "html.parser")
@@ -66,14 +74,14 @@ def build_web_search_chain(model: str, temperature: float, model_kwargs: Mapping
     :return: The LangChain chain.
     """
     scrape_and_summarize_chain = RunnablePassthrough.assign(
-        summary=RunnablePassthrough.assign(text=lambda x: __scrape_text(x["url"])[:10000])
+        summary=RunnablePassthrough.assign(text=lambda x: __scrape_text(x["url"])[:WEB_SEARCH_SCRAPING_MAX_RESULT_LENGTH])
         | SUMMARY_PROMPT
         | ChatOpenAI(model=model, max_tokens=WEB_SEARCH_SUMMARIZE_MAX_TOKENS, temperature=temperature, model_kwargs=dict(model_kwargs))
         | StrOutputParser()
     ) | (lambda x: f"URL: {x['url']}\nSUMMARY: {x['summary']}")
 
     return (
-        RunnablePassthrough.assign(urls=lambda x: __serp_api_search(x["query"], 3))
+        RunnablePassthrough.assign(urls=lambda x: __serp_api_search(x["query"], N_WEB_SEARCH_RESULTS))
         | (lambda x: [{"query": x["query"], "url": url} for url in x["urls"]])
         | scrape_and_summarize_chain.map()
         | (lambda x: "\n\n".join(x))

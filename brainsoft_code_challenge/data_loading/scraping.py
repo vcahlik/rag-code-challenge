@@ -67,19 +67,18 @@ def __scrape_examples_dir(url: str, github_api_token: str | None) -> list[dict[s
         if file["type"] == "dir":
             dir_url = file["url"]
             results.extend(__scrape_examples_dir(dir_url, github_api_token))
-        elif file["type"] == "file":
-            if file["name"].endswith(".py"):
-                if file["name"] == "__init__.py":
-                    continue
-                documentation_url = f"https://ibm.github.io/ibm-generative-ai/main/rst_source/{file['path'].removesuffix('.py').replace('/', '.')}.html"
-                if is_pytest_running():
-                    assert requests.get(documentation_url, timeout=REQUEST_TIMEOUT_SECONDS).status_code == 200  # noqa: PLR2004, S101
-                logging.info(f"Found page {documentation_url}")
-                source_url = file["download_url"]
-                source_response = requests.get(source_url, headers=__get_headers_for_github(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
-                content = source_response.text
-                result = {"source_path": file["path"], "source_url": source_url, "documentation_url": documentation_url, "content": content, "type": "example"}
-                results.append(result)
+        elif file["type"] == "file" and file["name"].endswith(".py"):
+            if file["name"] == "__init__.py":
+                continue
+            documentation_url = f"https://ibm.github.io/ibm-generative-ai/main/rst_source/{file['path'].removesuffix('.py').replace('/', '.')}.html"
+            if is_pytest_running():
+                assert requests.get(documentation_url, timeout=REQUEST_TIMEOUT_SECONDS).status_code == 200  # noqa: PLR2004, S101
+            logging.info(f"Found page {documentation_url}")
+            source_url = file["download_url"]
+            source_response = requests.get(source_url, headers=__get_headers_for_github(github_api_token), timeout=REQUEST_TIMEOUT_SECONDS)
+            content = source_response.text
+            result = {"source_path": file["path"], "source_url": source_url, "documentation_url": documentation_url, "content": content, "type": "example"}
+            results.append(result)
     return results
 
 

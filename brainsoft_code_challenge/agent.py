@@ -4,22 +4,20 @@ from collections.abc import Sequence
 from langchain.agents import AgentExecutor
 from langchain.agents.openai_tools.base import create_openai_tools_agent
 from langchain.chains.conversation.memory import ConversationSummaryBufferMemory
-from langchain_community.tools import BearlyInterpreterTool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 from brainsoft_code_challenge.config import CONVERSATION_SUMMARY_MODEL
-from brainsoft_code_challenge.constants import BEARLY_CODE_INTERPRETER_DESCRIPTION, OUTPUT_TOKEN_LIMIT
+from brainsoft_code_challenge.constants import OUTPUT_TOKEN_LIMIT
 from brainsoft_code_challenge.files import InputFile
 from brainsoft_code_challenge.tokenizer import get_memory_token_limit, shorten_input_text_for_model
+from brainsoft_code_challenge.tools.code_interpreter import get_code_interpreter_tool
 from brainsoft_code_challenge.tools.documentation_search import search_documentation
 from brainsoft_code_challenge.tools.web_search import search_google
 
 MemoryContextType = tuple[dict[str, str], dict[str, str]]
 
-
-code_interpreter_tool = BearlyInterpreterTool(api_key="bearly-sk-Ln465UBXv2wHRyBN25BZoVTMAA").as_tool()
-code_interpreter_tool.description = BEARLY_CODE_INTERPRETER_DESCRIPTION
+code_interpreter_tool = get_code_interpreter_tool()
 
 
 def get_system_prompt() -> str:
@@ -100,7 +98,7 @@ def build_agent_input(user_input: str, input_files: Sequence[InputFile], model: 
     :return: The agent executor input and a boolean indicating whether the input was cut off to fit the model's token limit.
     """
     if input_files:
-        file_texts = [f"Attached file: {input_file.name}\n{input_file.content[:10000]}" for input_file in input_files]
+        file_texts = [f"Attached file: {input_file.name}\n{input_file.content}" for input_file in input_files]
         joined_file_texts = "\n\n========================================\n\n".join(file_texts)
         input_text = joined_file_texts + "\n\nEnd of attachments, user input follows\n\n========================================\n\n" + user_input
     else:
