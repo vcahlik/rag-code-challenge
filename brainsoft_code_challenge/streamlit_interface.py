@@ -1,6 +1,7 @@
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
+from enum import Enum
 from typing import Any
 
 import streamlit as st
@@ -26,6 +27,149 @@ from brainsoft_code_challenge.config import (
 )
 from brainsoft_code_challenge.constants import ACTION_HINTS
 from brainsoft_code_challenge.files import InputFile, UnsupportedFileTypeError, process_csv, read_pdf_file
+
+
+class StreamlitMessageData:
+    """
+    A class to manage the data for a single message in the Streamlit chat. As we want to visualize whenever the agent uses a tool,
+    it keeps track of the mix of "message" (a single part of the stream) and "action" (the use of a tool) interactions, together with the attached files.
+    """
+
+    class MessageRole(Enum):
+        USER = "user"
+        ASSISTANT = "assistant"
+
+    class InteractionType(Enum):
+        MESSAGE = "message"
+        ACTION = "action"
+
+    def __init__(self, role: MessageRole, attached_files: Sequence[InputFile] | None = None):
+        self.role = role
+        self.interactions: list[Mapping[str, Any]] = []
+        self.attached_files = attached_files or []
+        self.current_stream = ""
+        self.current_stream_container: DeltaGenerator | None = None
+
+    def attach_files(self, files: Sequence[InputFile], render_element: DeltaGenerator | None = None) -> None:
+        """
+        Attaches the given files to the message, and visualizes them.
+
+        :param files: The InputFile objects attached to the message.
+        :param render_element: Streamlit element to render the attached files in (use None to render in the main element).
+        """
+        self.attached_files = files
+        self._render_attached_files(element=render_element)
+
+    def append_to_current_stream_and_render(self, content: str, render_element: DeltaGenerator) -> None:
+        """
+        Appends a string to the current stream and renders it in the given container.
+
+        :param content: Text to be appended.
+        :param render_element: Streamlit element to render the appended text in.
+        """
+        self.current_stream += content
+        if self.current_stream_container is None:
+            self.current_stream_container = render_element.empty()
+        self._render_message_content(self.current_stream, element=self.current_stream_container)
+
+    def register_and_render_message(self, content: str, render_element: DeltaGenerator | None = None) -> None:
+        """
+        Registers a "message" interaction and renders it in the given container.
+
+        :param content: Message text.
+        :param render_element: Streamlit element to render the message in (use None to render in the main element).
+        """
+        interaction = {"type": self.InteractionType.MESSAGE, "content": content}
+        self.interactions.append(interaction)
+        self._render_message_content(content, element=render_element)
+
+    def register_and_render_action(self, action: Mapping[str, str], render_element: DeltaGenerator | None = None) -> None:
+        """
+        Registers an "action" interaction and renders it in the given container.
+
+        :param action: Dictionary representing the action data.
+        :param render_element: Streamlit element to render the action in (use None to render in the main element).
+        """
+        self.register_and_reset_current_stream()
+        interaction = {"type": self.InteractionType.ACTION, "action": action}
+        self.interactions.append(interaction)
+        self._render_action(action, element=render_element)
+
+    def register_and_reset_current_stream(self) -> None:
+        """
+        Registers the current stream as a "message" interaction and resets it.
+        """
+        self.current_stream_container = None
+        if self.current_stream == "":
+            return
+        interaction = {"type": self.InteractionType.MESSAGE, "content": self.current_stream}
+        self.interactions.append(interaction)
+        self.current_stream = ""
+
+    def _render_attached_files(self, element: DeltaGenerator | None = None) -> None:
+        """
+        Renders the attached files in the given container.
+
+        :param element: Streamlit element to render the action in (use None to render in the main element).
+        """
+        if not self.attached_files:
+            return
+        file_statuses = []
+        for attached_file in self.attached_files:
+            if attached_file.error is not None:
+                file_statuses.append(f"❌ {attached_file.name} - {attached_file.error}")
+            else:
+                file_statuses.append(f"✅ {attached_file.name}")
+        file_names_string = "\n\n".join(file_statuses)
+        if element is not None:
+            element.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
+        else:
+            st.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
+
+    @staticmethod
+    def _render_message_content(content: str, element: DeltaGenerator | None = None) -> None:
+        """
+        Renders the content of a "message" interaction in the given container.
+
+        :param content: The message content.
+        :param element: Streamlit element to render the message in (use None to render in the main element).
+        """
+        if element is None:
+            st.markdown(content)
+        else:
+            element.markdown(content)
+
+    @staticmethod
+    def _render_action(action: Mapping[str, str], element: DeltaGenerator | None = None) -> None:
+        """
+        Displays an "action" interaction in the given container.
+
+        :param action: The action interaction to display.
+        :param element: Streamlit element to render the message in (use None to render in the main element).
+        """
+        hint = ACTION_HINTS[action["tool"]]
+        query = action["query"]
+        expander = st.expander(f"{hint}: {query}", expanded=False) if element is None else element.expander(f"{hint}: {query}", expanded=False)
+        with expander:
+            st.text(action["output"])
+
+    def render(self) -> None:
+        """
+        Renders the message in the Streamlit chat.
+        """
+        chat_message = st.chat_message(self.role.value)
+        stream_container = None
+        self._render_attached_files(element=chat_message)
+        for interaction in self.interactions:
+            if interaction["type"] == self.InteractionType.MESSAGE:
+                if stream_container is None:
+                    stream_container = chat_message.empty()
+                self._render_message_content(interaction["content"], element=stream_container)
+            elif interaction["type"] == self.InteractionType.ACTION:
+                self._render_action(interaction["action"], element=chat_message)
+                stream_container = None
+            else:
+                raise ValueError(f"Unknown interaction type: {interaction['type']}")
 
 
 def __initialize_chat() -> None:
@@ -94,21 +238,6 @@ def __prepare_page() -> None:
             col1.button("Reset chat", on_click=__reset_chat, args=reset_chat_args)
 
 
-def __render_actions(actions: Sequence[Mapping[str, str]], element: DeltaGenerator | None = None) -> None:
-    """
-    Displays the agent actions in the given container.
-
-    :param actions: The actions to display.
-    :param element: The container to display the actions in.
-    """
-    for action in actions:
-        hint = ACTION_HINTS[action["tool"]]
-        query = action["query"]
-        expander = st.expander(f"{hint}: {query}", expanded=False) if element is None else element.expander(f"{hint}: {query}", expanded=False)
-        with expander:
-            st.text(action["output"])
-
-
 def __read_attached_files(buffers: Sequence[UploadedFile] | None) -> list[InputFile]:
     """
     Reads the contents of the attached files.
@@ -144,36 +273,15 @@ def __read_attached_files(buffers: Sequence[UploadedFile] | None) -> list[InputF
     return input_files
 
 
-def __render_attached_files(message: Mapping[str, Any], element: DeltaGenerator | None = None) -> None:
-    """
-    Renders the attached files in the given container.
-
-    :param message: The message containing the attached files.
-    :param element: The container to display the attached files in.
-    """
-    if "input_files" in message:
-        file_statuses = []
-        for input_file in message["input_files"]:
-            if input_file.error is not None:
-                file_statuses.append(f"❌ {input_file.name} - {input_file.error}")
-            else:
-                file_statuses.append(f"✅ {input_file.name}")
-        file_names_string = "\n\n".join(file_statuses)
-        if element is not None:
-            element.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
-        else:
-            st.info(f"Attached files:\n\n{file_names_string}", icon="ℹ️")
-
-
 def __save_last_agent_output() -> None:
     """
     Saves the last agent output to the chat history.
     """
-    if "current_response" in st.session_state:
-        st.session_state.messages.append(
-            {"role": "assistant", "content": st.session_state.current_response["stream_text"], "actions": st.session_state.current_response["actions"]}
-        )
-        del st.session_state.current_response
+    if "current_message_data" in st.session_state:
+        current_message_data = st.session_state.current_message_data
+        current_message_data.register_and_reset_current_stream()
+        st.session_state.messages.append(current_message_data)
+        del st.session_state.current_message_data
 
 
 def __render_conversation_history() -> None:
@@ -182,10 +290,7 @@ def __render_conversation_history() -> None:
     """
     __save_last_agent_output()
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            __render_actions(message.get("actions", []))
-            __render_attached_files(message)
-            st.markdown(message["content"])
+        message.render()
 
 
 async def __process_user_input(user_input: str, attached_files: Sequence[UploadedFile] | None) -> None:
@@ -195,27 +300,21 @@ async def __process_user_input(user_input: str, attached_files: Sequence[Uploade
     :param user_input: The input submitted by the user.
     :param attached_files: The files attached with the input.
     """
-    input_files = __read_attached_files(attached_files)
-    message: dict[str, Any] = {"role": "user", "content": user_input}
-    if attached_files:
-        message["input_files"] = input_files
-    st.session_state.messages.append(message)
-    with st.chat_message("user"):
-        st.markdown(user_input)
+    user_message = st.chat_message("user")
+    user_message_data = StreamlitMessageData(StreamlitMessageData.MessageRole.USER)
+    if input_files := __read_attached_files(attached_files):
+        user_message_data.attach_files(input_files, render_element=user_message)
+    user_message_data.register_and_render_message(user_input, render_element=user_message)
+    st.session_state.messages.append(user_message_data)
 
     assistant_message = st.chat_message("assistant")
-    actions_container = assistant_message.container()
-    __render_attached_files(message, element=assistant_message)
-    stream_container = assistant_message.empty()
-    st.session_state.current_response = {"stream_text": "", "actions": []}
+    st.session_state.current_message_data = StreamlitMessageData(StreamlitMessageData.MessageRole.ASSISTANT)
+
     agent_input, input_was_cut_off = build_agent_input(user_input, input_files, model=st.session_state.model_config["model"])
     if input_was_cut_off:
         st.toast("The input was too long and therefore was cut off.", icon="⚠️")
     try:
         async for event in st.session_state.agent_executor.astream_events(agent_input, version="v1"):
-            if event["event"] == "on_tool_start":
-                actions_container = assistant_message.container()
-                stream_container = assistant_message.empty()
             if event["event"] == "on_tool_end":
                 if "query" in event["data"]["input"]:
                     query = event["data"]["input"]["query"]
@@ -228,11 +327,10 @@ async def __process_user_input(user_input: str, attached_files: Sequence[Uploade
                     "query": query,
                     "output": event["data"]["output"],
                 }
-                st.session_state.current_response["actions"].append(action)
-                __render_actions([action], element=actions_container)
+                st.session_state.current_message_data.register_and_render_action(action, render_element=assistant_message)
             elif event["event"] == "on_chat_model_stream":
-                st.session_state.current_response["stream_text"] += event["data"]["chunk"].content
-                stream_container.markdown(st.session_state.current_response["stream_text"])
+                content = event["data"]["chunk"].content
+                st.session_state.current_message_data.append_to_current_stream_and_render(content, render_element=assistant_message)
     except Exception as e:
         st.toast(f"An error occurred while obtaining the response: {e}", icon="⚠️")
     __save_last_agent_output()
